@@ -1,16 +1,24 @@
-const BrProcess = require('./run.js')
-const BrConsole = require('./console.js')
+const Br = require('./br.js')
 
-const ps = new BrProcess({
-  log: true
+ps = new Br({
+  log:true
 })
-
-ps.sendCmd(`10 library "switch.br":fnmylib`)
-ps.sendCmd(`20 let fnmylib`)
-ps.sendCmd(`RUN`)
-ps.sendCmd(`RUN`)
-ps.sendCmd(`RUN`)
-ps.sendCmd(`RUN`)
-ps.sendCmd(`RUN`)
-
-// const cs = new BrConsole()
+ps.on("ready",(license)=>{
+  ps.set(`a`,"test").then((data)=>{
+    console.log(`command output: ${data}`)
+  })
+  ps.set(`b`,5).then((data)=>{
+    console.log(`command output: ${data}`)
+  })
+  // ps.set(`b`,[5,4,5,4,6,1]).then((data)=>{
+  //   console.log(`command output: ${data}`)
+  // })
+  ps.getVal(`a`,'string').then((data)=>{
+    console.log(`command output: ${data}`)
+    console.log(`status: ${ps.state}`)
+  })
+  ps.getVal(`b`,'number').then((data)=>{
+    console.log(`command output: ${data}`)
+    console.log(`status: ${ps.state}`)
+  })
+})

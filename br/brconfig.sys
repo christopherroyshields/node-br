@@ -1,0 +1,17 @@
+LOGGING 0,,
+DRIVE c:,.,x,\
+
+workstack 64000
+forstack 300
+flowstack 500
+rpnstack 2999
+baseyear 1940
+cursor 0409
+maxrecall 90
+WSID=SESSION
+Shell Limit -1
+OPTION 26
+OPTION 41
+
+gui off
+statusline
