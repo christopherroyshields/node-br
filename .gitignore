@@ -1,0 +1,6 @@
+.git
+br/brserial.dat
+br/wbserver.dat
+log.txt
+*.bak
+**/node_modules

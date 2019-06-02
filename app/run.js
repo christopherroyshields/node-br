@@ -4,59 +4,10 @@ const pty = require('node-pty')
 const fs = require('fs')
 const os = require('os')
 const queue = require('p-queue');
-var AnsiParser = require('node-ansiparser');
-const Anser = require("anser");
-const ansiRegex = require('ansi-regex');
+const AnsiParser = require('node-ansiparser');
 const chalk = require('chalk');
 
-const REGEX_SHELL_ESCAPE = /(["\s'$`\\])/g
-const REGEX_SIGNAL_READY = /READY/
-const ESCAPE_CODE = /\e/
-
 const PROMPT_FOR_KEYPRESS = /Press any key to continue ..../
-
-const BRSIG = new Map([
-  [/READY/,"READY"],
-  [/\[24;80H/,"LASTPOSITION"],
-  [/\[25H\n\[24H\[1L/,"SCROLLUP"],
-  [/\[24H\[1M\[1H\[1L/,"SCROLLDN"],
-  [/\[25H\[K/,"CLEARSTATUS"],
-  [/\[24;80H\[1J/,"CLEAR"],
-  [/\[\?7h/,"INIT"],
-  [/\[H\[J/,"RESET"],
-  [/016/,"GRAPHICS_ON"],
-  [/017/,"GRAPHICS_OFF"],
-  [/\[\?25h/,"CURSOR_ON"],
-  [/\[\?25l/,"CURSOR_OFF"],
-  [/018547/,"ATTRIBUTE"],
-  [/0426153715/,"COLOR"],
-  [/\[\@/,"INSERT_CHAR"],
-  [/\[P/,"DELETE_CHAR"],
-  [/0008/,"BACKSPACE"],
-  [/\[D/,"LEFTARROW"],
-  [/\[C/,"RIGHTARROW"],
-  [/\[A/,"PRIORFIELD"],
-  [/\[B/,"NEXTFIELD"],
-  [/\[2~/,"INSERT"],
-  [/\[3~/,"DELETE"],
-  [/\[1~/,"HOME"],
-  [/\[4~/,"ENDFIELD"],
-  [/\[5~/,"PAGEUP"],
-  [/\[6~/,"PAGEDOWN"],
-  [/1b5b5b41/,"F1"],
-  [/1b5b5b42/,"F2"],
-  [/1b5b5b43/,"F3"],
-  [/1b5b5b44/,"F4"],
-  [/1b5b5b45/,"F5"],
-  [/1b5b31377e/,"F6"],
-  [/1b5b31387e/,"F7"],
-  [/1b5b31397e/,"F8"],
-  [/1b5b32307e/,"F9"],
-  [/1b5b32317e/,"F10"],
-  [/1b5b32337e/,"F11"],
-  [/1b5b32347e/,"F12"],
-  [/2b/,"FIELDPLUS"]
-])
 
 const ANSI_TEXT_ATTRIBUTES = []
 ANSI_TEXT_ATTRIBUTES[0] = 'All attributes off'
@@ -124,8 +75,10 @@ class BrProcess extends EventEmitter {
     this.jobs = []
     this.line = ""
     this.lines = []
+    this.license = ""
 
     this.on("print",this._handlePrint)
+    // this.on("print",this._handlePrint)
 
     this.on("cursor",this._handleCSI)
 
@@ -136,7 +89,7 @@ class BrProcess extends EventEmitter {
         return this.spawnBr(...args)
       })
       .then((ps,parser)=>{
-        console.log("ready")
+        // console.log("ready")
         this.ps = ps
         this.parser = new AnsiParser(this.terminal)
 
@@ -155,8 +108,8 @@ class BrProcess extends EventEmitter {
         //   } while (this.q.length);
         // }
 
-        this.ready = true
-        this.emit("onload")
+        // this.ready = true
+        // this.emit("onload")
       })
 
       this.shows = 0
@@ -202,7 +155,11 @@ class BrProcess extends EventEmitter {
         default:
       }
     } else {
-      this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
+      if (this.ready){
+        this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
+      } else {
+        this.license+=s
+      }
     }
   }
 
@@ -223,17 +180,23 @@ class BrProcess extends EventEmitter {
             console.log(`  Shows: ${this.shows}`)
 
             //remove command line
-            this.lines.shift()
+            // this.lines.shift()
             // this.lines.shift()
 
             // finish job
-            if (this.jobs.length){
-              var job = this.jobs.shift()
-              job.cb(this.lines.join("\n"))
-              this.lines = []
+            if (!this.ready) {
+              this.ready = true
+              this.emit("ready",this.license)
             } else {
-              this.emit("ready",this.lines.join("\n"))
-              this.lines = []
+                var job = this.jobs.shift()
+                this.lines.push(this.line)
+                this.line = ""
+                job.cb(this.lines)
+                this.lines = []
+              // } else {
+              //   this.emit("ready",this.lines.join("\n"))
+              //   this.lines = []
+              // }
             }
 
 //            this.grid[this.row][this.col]
@@ -371,22 +334,17 @@ class BrProcess extends EventEmitter {
         }
       })
 
+      var license = ""
+
       // check for initial load screen and simulate enter
-      var done = false
-        var loadListen = (data)=>{
-        parser.parse(data)
-      }
-      const parser = new AnsiParser({
-        inst_p: (s) => {
-          if (PROMPT_FOR_KEYPRESS.test(s)){
-            ps.removeListener('data',loadListen)
-            ps.write("\n")
-            resolve(ps)
-            return
-          }
+      ps.on('data',(s) => {
+        license+=s
+        if (PROMPT_FOR_KEYPRESS.test(s)){
+          // ps.removeListener('data',loadListen)
+          ps.write("\n")
+          resolve(ps)
         }
       })
-      ps.on('data',loadListen)
     })
   }
 
@@ -406,29 +364,19 @@ class BrProcess extends EventEmitter {
       cmd: cmd,
       cb: cb
     })
-    this.ps.write(`${cmd}\r`)
+    for (var i = 0; i < cmd.length; i++) {
+      this.ps.write(cmd[i])
+    }
+    // this.ps.write(`\r`)
   }
 
   sendCmd(brCmd){
-    // save command to stack
-
-    // look for indication that output has started
-
-    // store output
-
-    // check if finished
-
-    // resolve
-
     // if (this.ready){
     return new Promise((resolve,reject)=>{
       this.write(brCmd, (result)=>{
         resolve(result)
       })
     })
-    // } else {
-    //   this.q.push(brCmd)
-    // }
   }
 }
 

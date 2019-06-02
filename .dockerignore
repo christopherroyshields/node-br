@@ -1,0 +1,9 @@
+.git
+./br/brserial.dat
+./br/wbserver.dat
+./br/.bak
+.dockerignore
+.gitignore
+Dockerfile
+README.md
+**/node_modules
