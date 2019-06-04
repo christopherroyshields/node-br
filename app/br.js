@@ -4,23 +4,83 @@ const queue = require('p-queue')
 class Br extends BrProcess {
   constructor(...args){
     super(...args)
-    this.commandQueue = new queue({
-      concurrency:1
-    })
+  }
+  fn(fn,...args){
+    var dims = []
+    var argList = []
+    for (var arg in args) {
+      if (args.hasOwnProperty(arg)) {
+        switch (typeof args[arg]) {
+          case "string":
+            dims.push(`arg${arg}$*${args[arg].length}`)
+            argList.push(`arg${arg}$`)
+            break;
+          case "number":
+            dims.push(`arg${arg}`)
+            argList.push(`arg${arg}`)
+            break;
+          case "object":
+            var stringCount = 0
+            var numCount = 0
+            var maxLen = 0
+            for (var i = 0; i < args[arg].length; i++) {
+              switch (typeof args[arg][i]) {
+                case "string":
+                  stringCount++
+                  maxLen = Math.max(args[arg][i].length,maxLen)
+                  break;
+                case "number":
+                  numCount++
+                  break;
+                default:
+                  console.log("Invalid type [Object]")
+              }
+            }
+            if (stringCount){
+              dims.push(`arg${arg}$(${stringCount})*${maxLen}`)
+              argList.push(`mat arg${arg}$`)
+            }
+            if (numCount){
+              dims.push(`arg${arg}(${stringCount})`)
+              argList.push(`mat arg${arg}`)
+            }
+            break;
+          default:
+        }
+      }
+    }
+
+    var call = `let fn${fn}(${argList.join(",")})`
+
+    console.log(`dims:`);
+    console.log(dims);
+    console.log(`args:`);
+    console.log(argList);
+    console.log(`call:`);
+    console.log(call);
+
   }
   async set(name,val,idx){
     switch (typeof val) {
       case "string":
-        return await this.commandQueue.add(()=>{
-          return ps.sendCmd(`${name}$${idx!==undefined?`(${idx+1})`:``}="${val}"\r`)
+        return new Promise((resolve,reject)=>{
+          ps.sendCmd(`${name}$${idx!==undefined?`(${idx+1})`:``}="${val}" \r`).then((result)=>{
+            // remove command line
+            result.shift()
+            // remove trailing whitespace
+            result.unshift()
+            resolve(result[0].substring(1))
+          })
         })
         break;
       case "number":
-        return await this.commandQueue.add(()=>{
-          new Promise((resolve,reject)=>{
-            ps.sendCmd(`${name}${idx!==undefined?`(${idx+1})`:``}=${val}\r`).then((result)=>{
-               resolve(result)
-            })
+        return new Promise((resolve,reject)=>{
+          ps.sendCmd(`${name}${idx!==undefined?`(${idx+1})`:``}=${val} \r`).then((result)=>{
+            // remove command line
+            result.shift()
+            // remove trailing whitespace
+            result.unshift()
+            resolve(result[0].substring(1))
           })
         })
         break;
@@ -39,31 +99,27 @@ class Br extends BrProcess {
     }
   }
 
-  async getVal(name,type,idx,size=10){
+  async getVal(name,type,idx=false,size=10){
     switch (type) {
       case "string":
-        return await this.commandQueue.add(()=>{
-          return new Promise((resolve,reject)=>{
-            return ps.sendCmd(`print ${name}$${idx!==undefined?`(${idx})`:``}\r`).then((data)=>{
-              // remove command line
-              data.shift()
-              // remove trailing whitespace
-              data.unshift()
-              resolve(data[0])
-            })
+        return new Promise((resolve,reject)=>{
+          ps.sendCmd(`${name}$${idx?`(${idx})`:``} \r`).then((data)=>{
+            // remove command line
+            // data.shift()
+            // remove trailing whitespace
+            // data.unshift()
+            resolve(data)
           })
         })
         break;
       case "number":
-        return await this.commandQueue.add(()=>{
-          return new Promise((resolve,reject)=>{
-            return ps.sendCmd(`${name}${idx!==undefined?`(${idx+1})`:``}\r`).then((data)=>{
-              // remove command line
-              data.shift()
-              // remove trailing whitespace
-              data.unshift()
-              resolve(parseFloat(data[0]))
-            })
+        return new Promise((resolve,reject)=>{
+          ps.sendCmd(`${name}${idx?`(${idx+1})`:``} \r`).then((data)=>{
+            // remove command line
+            data.shift()
+            // remove trailing whitespace
+            data.unshift()
+            resolve(parseFloat(data[0]))
           })
         })
         break;

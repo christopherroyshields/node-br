@@ -1,115 +1,114 @@
 const Br = require('./br.js')
+const LoremIpsum = require("lorem-ipsum").LoremIpsum
 
-ps = new Br({
+const lorem = new LoremIpsum({
+  sentencesPerParagraph: {
+    max: 8,
+    min: 4
+  },
+  wordsPerSentence: {
+    max: 16,
+    min: 4
+  }
+})
+
+var hrstart = process.hrtime()
+br = new Br({
   log:true
 })
 
-ps.on("ready",(license)=>{
+br.on("ready",(license)=>{
   console.log("license returned:" +license)
-  // ps.sendCmd("DIR").then((data)=>{
-  //   console.log(data)
-  //   ps.sendCmd("DIR").then((data)=>{
-  //     console.log(data)
-  //   })
-  // })
-  ps.set(`a`,"test").then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-    // ps.set(`b`,[5,4,2,7]).then((data)=>{
-    //   console.log(`command output: ${data}`)
-    // })
-    // ps.getVal(`a`,'string').then((data)=>{
-    //   console.log(`command output: ${data}`)
-    //   console.log(`status: ${ps.state}`)
-    // })
-  })
-  ps.set(`a`,7).then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.set(`a`,"test").then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.set(`a`,"test").then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.set(`a`,"test").then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.set(`a`,"test").then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.set(`a`,"test").then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.set(`a`,"test").then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
+  var arrArg = ["arr1","arr2"]
+  br.fn("open","mylib","testarg",1.1234,["abc123","the quick brown fox",20,5.4321])
 
-  ps.getVal(`a`,'string').then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
 
-  ps.getVal(`a`,'string').then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-
-  ps.getVal(`a`,'string').then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.getVal(`a`,'string').then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  ps.getVal(`a`,'string').then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-  // ps.set(`b`,5).then((data)=>{
+  // start time
+  // hrend = process.hrtime(hrstart)
+  // console.info('Execution time (hr): %ds %dms', hrend[0], hrend[1] / 1000000)
+  //
+  // hrstart = process.hrtime()
+  // br.set(`a`,lorem.generateWords(5)).then((data)=>{
   //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${ps.state}`)
+  //   console.log(`length: ${data.length}`)
+  //   console.log(`status: ${br.state}`)
+  //   console.log(`error: ${br.error}`)
+  //   console.log(`line: ${br.lineNum}`)
+  //   console.log(`clause: ${br.clause}`)
+  //   hrend = process.hrtime(hrstart)
+  //   console.info('Execution time (hr): %ds %dms', hrend[0], hrend[1] / 1000000)
   // })
-  // ps.set(`c`,6).then((data)=>{
+  //
+  // br.set(`testnum`,7.4356).then((data)=>{
   //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${ps.state}`)
+  //   console.log(`status: ${br.state}`)
   // })
-  // ps.set(`d`,7).then((data)=>{
+  // //
+  // // br.set(`a`,"test").then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // // br.set(`a`,"test").then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // // br.set(`a`,"test").then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // // br.set(`a`,"test").then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // // br.set(`a`,"test").then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // br.set(`num`,10).then((data)=>{
   //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${ps.state}`)
+  //   console.log(`status: ${br.state}`)
   // })
-  ps.set(`c`,[5,4,3,2]).then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-
-  // ps.sendCmd("print SRep$(\"Wow that fish was that big.\",\"that\",\"this\")\r").then((data)=>{
+  // //
+  // br.getVal(`num`,'number').then((data)=>{
   //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${ps.state}`)
+  //   console.log(`status: ${br.state}`)
   // })
-
-  // console.log(ps.getVal(`b`,'number'))
-  ps.getVal(`c`,'number',3).then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-
-  // console.log(ps.getVal(`b`,'number'))
-  ps.getVal(`c`,'numberarray').then((data)=>{
-    console.log(`command output: ${data}`)
-    console.log(`status: ${ps.state}`)
-  })
-
-  // ps.getVal(`d`,'number').then((data)=>{
+  // //
+  // // br.getVal(`a`,'string').then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // br.getVal(`a`,'string').then((data)=>{
   //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${ps.state}`)
+  //   console.log(`status: ${br.state}`)
   // })
+  // //
+  // //
+  // //
+  // // br.set(`b`,[5,4,3,2]).then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // // br.getVal(`b`,'number',3).then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // //
+  // // // console.log(br.getVal(`b`,'number'))
+  // // br.getVal(`c`,'numberarray').then((data)=>{
+  // //   console.log(`command output: ${data}`)
+  // //   console.log(`status: ${br.state}`)
+  // // })
+  // br.getVal(`a`,'string').then((data)=>{
+  //   console.log(`command output: ${data}`)
+  //   console.log(`status: ${br.state}`)
+  // })
+
 })

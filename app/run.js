@@ -64,6 +64,10 @@ class BrProcess extends EventEmitter {
       concurrency:1
     })
 
+    this.commandQueue = new queue({
+      concurrency:1
+    })
+
     this.brConfig = {
       rows: 25,
       cols: 80
@@ -137,14 +141,15 @@ class BrProcess extends EventEmitter {
           break;
         case 39:
           // four
+          this.error = parseInt(s)
           break;
         case 44:
-          // eight
+          // line
+          this.lineNum = parseInt(s.substring(0,5))
+          this.clause = parseInt(s.substring(6))
           break;
         case 53:
           // eight
-          break;
-        case 44:
           break;
         case 62:
           break;
@@ -153,6 +158,7 @@ class BrProcess extends EventEmitter {
           // eight
           break;
         default:
+          console.log(`uncaught column:${this.column}`);
       }
     } else {
       if (this.ready){
@@ -364,17 +370,16 @@ class BrProcess extends EventEmitter {
       cmd: cmd,
       cb: cb
     })
-    for (var i = 0; i < cmd.length; i++) {
-      this.ps.write(cmd[i])
-    }
-    // this.ps.write(`\r`)
+    this.ps.write(cmd)
   }
 
-  sendCmd(brCmd){
+  async sendCmd(brCmd){
     // if (this.ready){
-    return new Promise((resolve,reject)=>{
-      this.write(brCmd, (result)=>{
-        resolve(result)
+    return await this.commandQueue.add(()=>{
+      return new Promise((resolve,reject)=>{
+        this.write(brCmd, (result)=>{
+          resolve(result)
+        })
       })
     })
   }
