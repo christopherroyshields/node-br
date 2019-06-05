@@ -5,19 +5,22 @@ class Br extends BrProcess {
   constructor(...args){
     super(...args)
   }
-  fn(fn,...args){
+  fn(fn,lib,...args){
     var dims = []
     var argList = []
+    var setList = []
     for (var arg in args) {
       if (args.hasOwnProperty(arg)) {
         switch (typeof args[arg]) {
           case "string":
             dims.push(`arg${arg}$*${args[arg].length}`)
             argList.push(`arg${arg}$`)
+            setList.push(`arg${arg}$="${args[arg]}"`)
             break;
           case "number":
             dims.push(`arg${arg}`)
             argList.push(`arg${arg}`)
+            setList.push(`arg${arg}=${args[arg]}`)
             break;
           case "object":
             var stringCount = 0
@@ -28,9 +31,11 @@ class Br extends BrProcess {
                 case "string":
                   stringCount++
                   maxLen = Math.max(args[arg][i].length,maxLen)
+                  setList.push(`arg${arg}$(${stringCount})="${args[arg][i]}"`)
                   break;
                 case "number":
                   numCount++
+                  setList.push(`arg${arg}(${numCount})=${args[arg][i]}`)
                   break;
                 default:
                   console.log("Invalid type [Object]")
@@ -50,14 +55,25 @@ class Br extends BrProcess {
       }
     }
 
-    var call = `let fn${fn}(${argList.join(",")})`
+    var codeLines = []
+    do {
+      codeLines.push(`DIM ${dims.splice(0,6).join(",")}`)
+    } while (dims.length)
 
-    console.log(`dims:`);
-    console.log(dims);
-    console.log(`args:`);
-    console.log(argList);
-    console.log(`call:`);
-    console.log(call);
+    do {
+      codeLines.push(`LET ${setList.shift()}`)
+    } while (setList.length)
+
+    codeLines.push(`LET fn${fn}(${argList.join(",")})`)
+
+    // console.log(`dims:`);
+    // console.log(dims);
+    // console.log(`args:`);
+    // console.log(argList);
+    // console.log(`call:`);
+    // console.log(call);
+    console.log(`code:`);
+    console.log(codeLines);
 
   }
   async set(name,val,idx){
