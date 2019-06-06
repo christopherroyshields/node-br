@@ -9,6 +9,9 @@ class Br extends BrProcess {
     var dims = []
     var argList = []
     var setList = []
+    var getList = []
+    getList.push(`print "{"`)
+    getList.push(`print "results:["`)
     for (var arg in args) {
       if (args.hasOwnProperty(arg)) {
         switch (typeof args[arg]) {
@@ -16,31 +19,39 @@ class Br extends BrProcess {
             dims.push(`arg${arg}$*${args[arg].length}`)
             argList.push(`arg${arg}$`)
             setList.push(`arg${arg}$="${args[arg]}"`)
+            getList.push(`print arg${arg}$${arg<args.length?'&","':''}`)
             break;
           case "number":
             dims.push(`arg${arg}`)
             argList.push(`arg${arg}`)
             setList.push(`arg${arg}=${args[arg]}`)
+            getList.push(`print str$(arg${arg})${arg<args.length?'&","':''}`)
             break;
           case "object":
             var stringCount = 0
             var numCount = 0
             var maxLen = 0
+            getList.push(`print "["`)
             for (var i = 0; i < args[arg].length; i++) {
               switch (typeof args[arg][i]) {
                 case "string":
                   stringCount++
                   maxLen = Math.max(args[arg][i].length,maxLen)
                   setList.push(`arg${arg}$(${stringCount})="${args[arg][i]}"`)
+                  getList.push(`print arg${arg}$(${stringCount})&${i+1<args[arg].length?'","':''}`)
                   break;
                 case "number":
                   numCount++
                   setList.push(`arg${arg}(${numCount})=${args[arg][i]}`)
+                  getList.push(`print str$(arg${arg}(${numCount}))&${i+1<args[arg].length?'","':''}`)
                   break;
                 default:
                   console.log("Invalid type [Object]")
               }
             }
+            console.log(arg+1)
+            console.log(args.length)
+            getList.push(`print "]${arg+1<args.length?',':''}"`)
             if (stringCount){
               dims.push(`arg${arg}$(${stringCount})*${maxLen}`)
               argList.push(`mat arg${arg}$`)
@@ -54,6 +65,8 @@ class Br extends BrProcess {
         }
       }
     }
+    getList.push(`print "]"`)
+    getList.push(`print "}"`)
 
     var codeLines = []
     do {
@@ -72,8 +85,10 @@ class Br extends BrProcess {
     // console.log(argList);
     // console.log(`call:`);
     // console.log(call);
-    console.log(`code:`);
-    console.log(codeLines);
+    // console.log(`code:`);
+    // console.log(codeLines);
+    console.log(`get:`);
+    console.log(getList);
 
   }
   async set(name,val,idx){
