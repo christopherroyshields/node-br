@@ -2,9 +2,16 @@ const BrProcess = require('./run.js')
 const queue = require('p-queue')
 
 class Br extends BrProcess {
-  constructor(...args){
-    super(...args)
+  constructor(config){
+    super({
+      log:config.log
+    })
+    this.libs = config.libs
   }
+  run(prog){
+
+  }
+  // registers
   fn(fn,lib,...args){
     var dims = []
     var argList = []
@@ -38,7 +45,7 @@ class Br extends BrProcess {
                   stringCount++
                   maxLen = Math.max(args[arg][i].length,maxLen)
                   setList.push(`arg${arg}$(${stringCount})="${args[arg][i]}"`)
-                  getList.push(`str$(arg${arg}$(${stringCount})`)
+                  getList.push(`str$(arg${arg}$(${stringCount}))`)
                   break;
                 case "number":
                   numCount++
@@ -77,6 +84,10 @@ class Br extends BrProcess {
       codeLines.push(`DIM ${dims.splice(0,6).join(",")}`)
     } while (dims.length)
 
+    for (var lib in this.libs) {
+      codeLines.push(`LIBRARY "${lib}": ${this.libs[lib].join(",")}`)
+    }
+
     do {
       codeLines.push(`LET ${setList.shift()}`)
     } while (setList.length)
@@ -87,11 +98,11 @@ class Br extends BrProcess {
       codeLines.push(`PRINT ${getList.shift()}`)
     } while (getList.length)
 
-    for (var i = 0; i < codeLines.length; i++) {
-      this.sendCmd(`${i.toString().padStart(5,0)} ${codeLines[i]}\r`)
-    }
+    // for (var i = 0; i < codeLines.length; i++) {
+    //   this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
+    // }
 
-    this.sendCmd("SAVE\r")
+    // this.sendCmd("SAVE test\r")
 
     // console.log(`dims:`);
     // console.log(dims);
