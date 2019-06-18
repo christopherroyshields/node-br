@@ -14,13 +14,17 @@ const lorem = new LoremIpsum({
 
 var hrstart = process.hrtime()
 br = new Br({
-  log:true
+  log: true,
+  libs: {
+    "testlib":["fntest"]
+  }
 })
 
 br.on("ready",(license)=>{
   console.log("license returned:" +license)
-  var arrArg = ["arr1","arr2"]
-  br.fn("open","mylib","testarg",1.1234,["abc123","the quick brown fox",20,5.4321],"testarg",1.1234,["abc123","the quick brown fox",20,5.4321],"testarg",1.1234,["abc123","the quick brown fox",20,5.4321],"testarg",1.1234,["abc123","the quick brown fox",20,5.4321],"testarg",1.1234,["abc123","the quick brown fox",20,5.4321],"testarg",1.1234,["abc123","the quick brown fox",20,5.4321])
+  var arrArg = ["arr1",80085]
+  // br.lib("testlib",["test"])
+  br.fn("test","testlib","testarg",1.1234,arrArg)
 
 
   // start time
