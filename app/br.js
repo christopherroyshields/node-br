@@ -12,7 +12,7 @@ class Br extends BrProcess {
 
   }
   // registers
-  fn(fn,lib,...args){
+  fn(fn,...args){
     var dims = []
     var argList = []
     var setList = []
@@ -106,10 +106,6 @@ class Br extends BrProcess {
     }
 
     this.sendCmd(`RUN\r`).then((res)=>{
-      if (this.error){
-        console.log("error: " + this.error.toString().padStart(4,'0'))
-        console.log("line: " + this.lineNum.toString().padStart(5,'0'))
-      }
       console.log(res)
     })
     // this.sendCmd(withLineNums).then((res)=>{

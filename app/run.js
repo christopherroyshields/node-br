@@ -118,7 +118,18 @@ class BrProcess extends EventEmitter {
 
       this.shows = 0
   }
-
+  _handleError(){
+    // converts BR error to Javascript Exception
+    // May want to expand to have more br error info
+    throw {
+      name: "BR Error",
+      message: `
+      Error Number: ${this.error}
+      Line: ${this.lineNum}
+      Clause: ${this.clause}
+      `
+    }
+  }
   _handlePrint(s) {
     console.log(`print: ${s}`)
 
@@ -129,6 +140,9 @@ class BrProcess extends EventEmitter {
         case 1:
           // seven
           this.state = s
+          if (this.state==="ERROR  "){
+            this._handleError()
+          }
           break;
         case 8:
           // one char
@@ -186,7 +200,7 @@ class BrProcess extends EventEmitter {
             console.log(`  Shows: ${this.shows}`)
 
             //remove command line
-            // this.lines.shift()
+            this.lines.shift()
             // this.lines.shift()
 
             // finish job
@@ -195,7 +209,7 @@ class BrProcess extends EventEmitter {
               this.emit("ready",this.license)
             } else {
               var job = this.jobs.shift()
-              this.lines.push(this.line)
+              this.lines.push(this.line.substring(1))
               this.line = ""
               job.cb(this.lines)
               this.lines = []
@@ -233,7 +247,7 @@ class BrProcess extends EventEmitter {
           case 'S':
             console.log('  Scroll up Ps lines (default = 1) (SU):')
             console.log(`    Lines: ${params.toString()}`)
-            this.lines.push(this.line)
+            this.lines.push(this.line.substring(1))
             this.line = ""
             break
           default:
