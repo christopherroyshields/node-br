@@ -194,11 +194,11 @@ class BrProcess extends EventEmitter {
               this.ready = true
               this.emit("ready",this.license)
             } else {
-                var job = this.jobs.shift()
-                this.lines.push(this.line)
-                this.line = ""
-                job.cb(this.lines)
-                this.lines = []
+              var job = this.jobs.shift()
+              this.lines.push(this.line)
+              this.line = ""
+              job.cb(this.lines)
+              this.lines = []
               // } else {
               //   this.emit("ready",this.lines.join("\n"))
               //   this.lines = []
@@ -332,7 +332,7 @@ class BrProcess extends EventEmitter {
       // create psuedoterminal
       var ps = pty.spawn("./brlinux", args, {
         name: 'xterm',
-        cols: this.brConfig.rows,
+        cols: this.brConfig.cols,
         rows: this.brConfig.rows,
         cwd: '/br',
         env: {

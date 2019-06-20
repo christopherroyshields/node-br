@@ -45,12 +45,12 @@ class Br extends BrProcess {
                   stringCount++
                   maxLen = Math.max(args[arg][i].length,maxLen)
                   setList.push(`arg${arg}$(${stringCount})="${args[arg][i]}"`)
-                  getList.push(`str$(arg${arg}$(${stringCount}))`)
+                  getList.push(`arg${arg}$(${stringCount})`)
                   break;
                 case "number":
                   numCount++
                   setList.push(`arg${arg}(${numCount})=${args[arg][i]}`)
-                  getList.push(`arg${arg}(${numCount})`)
+                  getList.push(`str$(arg${arg}(${numCount}))`)
                   break;
                 default:
                   console.log("Invalid type [Object]")
@@ -98,20 +98,32 @@ class Br extends BrProcess {
       codeLines.push(`PRINT ${getList.shift()}`)
     } while (getList.length)
 
-    // for (var i = 0; i < codeLines.length; i++) {
-    //   this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
-    // }
+    var withLineNums = ''
+    for (var i = 0; i < codeLines.length; i++) {
+      console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
+      this.sendCmd(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
+      // this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
+    }
 
-    // this.sendCmd("SAVE test\r")
+    this.sendCmd(`RUN\r`).then((res)=>{
+      if (this.error){
+        console.log("error: " + this.error.toString().padStart(4,'0'))
+        console.log("line: " + this.lineNum.toString().padStart(5,'0'))
+      }
+      console.log(res)
+    })
+    // this.sendCmd(withLineNums).then((res)=>{
+    //   console.log(res)
+    // });
 
-    // console.log(`dims:`);
+    // this.sendCmd("SAVE TEST\r\n");
     // console.log(dims);
     // console.log(`args:`);
     // console.log(argList);
     // console.log(`call:`);
     // console.log(call);
-    console.log(`code:`);
-    console.log(codeLines);
+    // console.log(`code:`);
+    // console.log(codeLines);
     // console.log(`get:`);
     // console.log(getList);
 
@@ -120,7 +132,7 @@ class Br extends BrProcess {
     switch (typeof val) {
       case "string":
         return new Promise((resolve,reject)=>{
-          ps.sendCmd(`${name}$${idx!==undefined?`(${idx+1})`:``}="${val}" \r`).then((result)=>{
+          this.sendCmd(`${name}$${idx!==undefined?`(${idx+1})`:``}="${val}" \r`).then((result)=>{
             // remove command line
             result.shift()
             // remove trailing whitespace
@@ -131,7 +143,7 @@ class Br extends BrProcess {
         break;
       case "number":
         return new Promise((resolve,reject)=>{
-          ps.sendCmd(`${name}${idx!==undefined?`(${idx+1})`:``})=${val} \r`).then((result)=>{
+          this.sendCmd(`${name}${idx!==undefined?`(${idx+1})`:``})=${val} \r`).then((result)=>{
             // remove command line
             result.shift()
             // remove trailing whitespace
@@ -159,7 +171,7 @@ class Br extends BrProcess {
     switch (type) {
       case "string":
         return new Promise((resolve,reject)=>{
-          ps.sendCmd(`${name}$${idx?`(${idx})`:``} \r`).then((data)=>{
+          this.sendCmd(`${name}$${idx?`(${idx})`:``} \r`).then((data)=>{
             // remove command line
             // data.shift()
             // remove trailing whitespace
@@ -170,7 +182,7 @@ class Br extends BrProcess {
         break;
       case "number":
         return new Promise((resolve,reject)=>{
-          ps.sendCmd(`${name}${idx?`(${idx+1})`:``} \r`).then((data)=>{
+          this.sendCmd(`${name}${idx?`(${idx+1})`:``} \r`).then((data)=>{
             // remove command line
             data.shift()
             // remove trailing whitespace

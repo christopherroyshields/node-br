@@ -26,13 +26,12 @@ br.on("ready",(license)=>{
   // br.lib("testlib",["test"])
   br.fn("test","testlib","testarg",1.1234,arrArg)
 
-
   // start time
   // hrend = process.hrtime(hrstart)
   // console.info('Execution time (hr): %ds %dms', hrend[0], hrend[1] / 1000000)
   //
   // hrstart = process.hrtime()
-  // br.set(`a`,lorem.generateWords(5)).then((data)=>{
+  // br.set(`a`,"test").then((data)=>{
   //   console.log(`command output: ${data}`)
   //   console.log(`length: ${data.length}`)
   //   console.log(`status: ${br.state}`)
