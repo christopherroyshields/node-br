@@ -8,14 +8,12 @@ RUN apk update && apk add \
   python \
   bash
 
-COPY ./app/package.json /app
-RUN npm i --prefix /app
-
-VOLUME wbterm.out
-
 COPY . /
 
 WORKDIR /app
+RUN npm i
+
+
 EXPOSE 9229
 
 CMD ["node","run"]

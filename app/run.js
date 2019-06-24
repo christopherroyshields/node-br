@@ -3,7 +3,7 @@ const EventEmitter = require('events');
 const pty = require('node-pty')
 const fs = require('fs')
 const os = require('os')
-const queue = require('p-queue');
+const {default: PQueue} = require('p-queue');
 const AnsiParser = require('node-ansiparser');
 const chalk = require('chalk');
 
@@ -60,11 +60,11 @@ class BrProcess extends EventEmitter {
 
     this.prompted = false;
 
-    this.queue = new queue({
+    this.queue = new PQueue({
       concurrency:1
     })
 
-    this.commandQueue = new queue({
+    this.commandQueue = new PQueue({
       concurrency:1
     })
 

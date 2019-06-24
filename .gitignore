@@ -1,5 +1,5 @@
 .git
-br/brserial.dat
+brserial.dat
 br/wbserver.dat
 log.txt
 *.bak
