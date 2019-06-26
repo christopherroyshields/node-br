@@ -12,7 +12,13 @@ br.on("ready",(license)=>{
   console.log("license returned:" +license)
   var arrArg = ["arr1",80085]
   // br.lib("testlib",["test"])
-  br.fn("test","testarg",1.1234,arrArg)
+  br.compile("/br/testlib.brs")
+    .then((success)=>{
+      console.log(`program compiled:${success.toString()}`)
+    })
+
+
+  // br.fn("test","testarg",1.1234,arrArg)
 
   // start time
   // hrend = process.hrtime(hrstart)

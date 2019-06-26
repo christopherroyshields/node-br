@@ -1,5 +1,8 @@
 const BrProcess = require('./run.js')
 const queue = require('p-queue')
+const path = require('path')
+const fs = require('fs');
+const fsPromises = fs.promises;
 
 class Br extends BrProcess {
   constructor(config){
@@ -8,8 +11,76 @@ class Br extends BrProcess {
     })
     this.libs = config.libs
   }
+  compile(sourceFilename){
+    var saveName = this.getCompiledName(sourceFilename)
+    var saveCmd = 'REPLACE'
+    return new Promise((resolve,reject)=>{
+      fsPromises.access(sourceFilename, fs.constants.R_OK)
+        .catch(()=>console.log(`Can't read file.`))
+        .then(() => {
+          return fsPromises.access(`${path.dirname(sourceFilename)}/${saveName}`,fs.constants.W_OK)
+        })
+        .catch((err)=>{
+          if (err.code==="ENOENT"){
+            saveCmd = 'SAVE'
+          } else {
+            throw err
+          }
+        })
+        .then(() => {
+          return fsPromises.readFile(sourceFilename)
+        })
+        .then((contents)=>{
+          var lines = this.addLineNumbers(contents.toString())
+          for (var i = 0; i < lines.length; i++) {
+            this.sendCmd(`${lines[i]}\r`)
+          }
+          return this.sendCmd(`${saveCmd} ${saveName}\r`)
+        })
+        .then((result)=>{
+          resolve(true)
+        })
+    })
+  }
+  getCompiledName(sourceFilename){
+    var compiledName = ''
+    switch (path.extname(sourceFilename)) {
+      case '.wbs':
+        compiledName = path.basename(sourceFilename,'.wbs')+'.wb'
+        break;
+      case '.brs':
+        compiledName = path.basename(sourceFilename,'.brs')+'.br'
+        break;
+      default:
+    }
+    return compiledName
+  }
+  addLineNumbers(code){
+    var lines = code.split("\r\n")
+    if (lines[lines.length-1]===""){
+      lines.pop()
+    }
+    for (var i = 0; i < lines.length; i++) {
+      lines[i] = `${(i+1).toString().padStart(5,0)} ${lines[i]}`
+    }
+    return lines
+  }
   run(prog){
+    switch (path.extname(prog)) {
+      case '.br':
+      case '.wb':
+        this.sendCmd(`RUN ${prog}`)
+        break;
+      case '.brs':
+      case '.wbs':
+        break;
+      default:
 
+    }
+    // check if source or compiled
+    // if (this.isSource(prog)){
+    //   this.compile()
+    // }
   }
   // registers
   fn(fn,...args){

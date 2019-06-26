@@ -8,13 +8,13 @@ This is a tool to provide a Node.js interface to the Business Rules Programming 
 * Add run function
 
 # Example commands
-### BUILD
+## BUILD
 ``` bash
 docker build . \
  -t node-br
 ```
 
-### RUN
+## RUN
 ``` bash
 docker run -it \
  -v C:\\Users\\admin\\projects\\node-br\\brserial.dat:/br/brserial.dat \
