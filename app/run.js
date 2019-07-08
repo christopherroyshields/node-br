@@ -53,6 +53,7 @@ class BrProcess extends EventEmitter {
     // console=true,
     bin="",
     entrypoint='',
+    libs=[],
     ...opt
   },...args){
 
@@ -80,43 +81,31 @@ class BrProcess extends EventEmitter {
     this.line = ""
     this.lines = []
     this.license = ""
+    this.config_messages = []
+    this.license_text = []
+    this.copyright = []
+    this.serial = ""
+    this.licensee = ""
+    this.licensee_address = []
+    this.stations = null
+    this.concurrency = null
+    this.wsid = null
+    this.splashed = false
 
-    this.on("print",this._handlePrint)
-    // this.on("print",this._handlePrint)
-
-    this.on("cursor",this._handleCSI)
-
+    this.shows = 0
     // ansi keycode event handlers
     this._startLog(log, filename)
       .then((log)=>{
         this.log = log
         return this.spawnBr(...args)
       })
-      .then((ps,parser)=>{
-        // console.log("ready")
+      .then(({ps, license})=>{
         this.ps = ps
-        this.parser = new AnsiParser(this.terminal)
-
-        this.ps.on('data',(data)=>{
-          this.parser.parse(data)
-        })
-
-        // drain existing command queue
-        // if (this.q.length){
-        //   do {
-        //     let cmd = this.q.shift()
-        //     if (this.log){
-        //       // console.log(`\rcmd:${cmd}\r\n`)
-        //     }
-        //     this.write(`${cmd}`)
-        //   } while (this.q.length);
-        // }
-
-        // this.ready = true
-        // this.emit("onload")
+        this.license = license
+        // console.log("ready")
+        this.emit("ready",this.license)
       })
 
-      this.shows = 0
   }
   _handleError(){
     // converts BR error to Javascript Exception
@@ -134,52 +123,194 @@ class BrProcess extends EventEmitter {
     console.log(`print: ${s}`)
 
     // if last row
-    if (this.row===this.brConfig.rows) {
-      // update status from statusline
-      switch (this.column) {
-        case 1:
-          // seven
-          this.state = s
-          if (this.state==="ERROR  "){
-            this._handleError()
-          }
-          break;
-        case 8:
-          // one char
-          break;
-        case 9:
-          // 29
-          break;
-        case 38:
-          // one
-          break;
-        case 39:
-          // four
-          this.error = parseInt(s)
-          break;
-        case 44:
-          // line
-          this.lineNum = parseInt(s.substring(0,5))
-          this.clause = parseInt(s.substring(6))
-          break;
-        case 53:
-          // eight
-          break;
-        case 62:
-          break;
-        case 75:
-          this.version = s
-          // eight
-          break;
-        default:
-          console.log(`uncaught column:${this.column}`);
-      }
-    } else {
-      if (this.ready){
-        this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
-      } else {
-        this.license+=s
-      }
+    switch (this.row) {
+      case 4:
+        switch (this.column) {
+          case 7:
+            if (this.shows===0){
+              this.copyright[0] = s
+            }
+            break;
+          default:
+        }
+        break
+      case 5:
+        switch (this.column) {
+          case 7:
+            if (this.shows===0){
+              this.copyright[1] = s
+            }
+            break;
+          default:
+        }
+        break
+
+      case 8:
+        switch (this.column) {
+          case 7:
+            if (this.shows===0){
+              this.serial = parseInt(s.split(" ")[1])
+            }
+            break;
+          default:
+        }
+        break;
+      case 9:
+        switch (this.column) {
+          case 26:
+            this.licensee = s
+            break;
+          default:
+        }
+        break;
+      case 10:
+        switch (this.column) {
+          case 11:
+            this.licensee_address[0] = s
+            break;
+          default:
+        }
+        break;
+      case 11:
+        switch (this.column) {
+          case 11:
+            this.licensee_address[1] = s
+            break;
+          default:
+        }
+        break;
+      case 12:
+        switch (this.column) {
+          case 11:
+            this.licensee_address[2] = s
+            break;
+          default:
+        }
+        break;
+      case 14:
+        switch (this.column) {
+          case 7:
+            if (this.shows===0){
+              this.license_text.push(s)
+            }
+            break;
+          default:
+        }
+        break
+
+      case 15:
+        switch (this.column) {
+          case 7:
+            if (this.shows===0){
+              this.license_text.push(s)
+            }
+            break;
+          default:
+        }
+        break
+
+      case 16:
+        switch (this.column) {
+          case 7:
+            if (this.shows===0){
+              this.license_text.push(s)
+            }
+            break;
+          default:
+        }
+        break
+
+      case 17:
+        switch (this.column) {
+          case 7:
+            if (this.shows===0){
+              this.license_text.push(s)
+            }
+            break;
+          default:
+        }
+        break
+
+      case 23:
+        // if still loading config messages are print on line 23
+        switch (this.column) {
+          case 1:
+            if (this.shows===0){
+              if (this.license_text.length){
+                // if loading and after license info
+                if (s.substring(0,15)==="Workstation ID:"){
+                  this.wsid = parseInt(s.substring(16))
+                }
+              } else {
+                // if loading and before license message
+                this.config_messages.push(s)
+              }
+            }
+            break;
+          default:
+        }
+        break
+
+      case 24:
+        switch (this.column) {
+          case 1:
+            if (s.substring(0,24)==="Stations on the network:") {
+              this.stations = parseInt(s.substring(25))
+            }
+            if (s.substring(0,25)==="Maximum Concurrent Users:") {
+              this.concurrency = parseInt(s.substring(26))
+            }
+            if (s==="Press any key to continue ....") {
+              this.splashed = true
+            }
+            break;
+          default:
+        }
+        break;
+
+      case this.brConfig.rows:
+        // this handles printing to last line which is the statusline
+        switch (this.column) {
+          case 1:
+            // seven
+            this.state = s
+            if (this.state==="ERROR  "){
+              this._handleError()
+            }
+            break;
+          case 8:
+            // one char
+            break;
+          case 9:
+            // 29
+            break;
+          case 38:
+            // one
+            break;
+          case 39:
+            // four
+            this.error = parseInt(s)
+            break;
+          case 44:
+            // line
+            this.lineNum = parseInt(s.substring(0,5))
+            this.clause = parseInt(s.substring(6))
+            break;
+          case 53:
+            // eight
+            break;
+          case 62:
+            break;
+          case 75:
+            this.version = s
+            // eight
+            break;
+          default:
+            console.log(`uncaught column:${this.column}`);
+        }
+        break;
+      default:
+      this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
     }
   }
 
@@ -189,37 +320,46 @@ class BrProcess extends EventEmitter {
       case '?':
         switch (flag) {
           case 'l':
-            console.log(`  DEC Private Mode Reset (DECRST): ${XTERM_DECRST[params[0]]}`)
+            console.log(`  DEC Private Mode Reset (DECRST):`)
             // this.shows=0
             // this.running
             // this.grid[this.row][this.col]
+            switch (params[0]) {
+              case 25:
+                console.log(`    Hide Cursor (DECTCEM)`)
+                return "DECTCEM"
+                break;
+              default:
+                console.log(`Uncaught Private Mode Reset: ${params[0]}`)
+            }
             break;
           case 'h':
-            this.shows+=1
-            console.log(`  DEC Private Mode Set (DECSET): ${XTERM_DECSET[params[0]]}`)
-            console.log(`  Shows: ${this.shows}`)
+            console.log(`  DEC Private Mode Set (DECSET)`)
+            switch (params[0]) {
+              case 7:
+                console.log(`    Auto-wrap Mode (DECAWM), VT100.`)
+                return "DECAWM"
+                break
+              case 25:
+                console.log(`    Show Cursor (DECTCEM)`)
+                this.shows+=1
+                console.log(`    Shows: ${this.shows}`)
+                // this.lines.shift()
 
-            //remove command line
-            this.lines.shift()
-            // this.lines.shift()
-
-            // finish job
-            if (!this.ready) {
-              this.ready = true
-              this.emit("ready",this.license)
-            } else {
-              var job = this.jobs.shift()
-              this.lines.push(this.line.substring(1))
-              this.line = ""
-              job.cb(this.lines)
-              this.lines = []
-              // } else {
-              //   this.emit("ready",this.lines.join("\n"))
-              //   this.lines = []
-              // }
+                // finish job
+                this.lines.push(this.line.substring(1))
+                this.line = ""
+                if (this.jobs.length){
+                  var job = this.jobs.shift()
+                  job.cb(this.lines)
+                  this.lines = []
+                }
+                return "DECTCEM"
+                break;
+              default:
+                console.log(`Uncaught Private Mode Set: ${params[0]}`)
             }
 
-//            this.grid[this.row][this.col]
             break;
           default:
         }
@@ -240,12 +380,46 @@ class BrProcess extends EventEmitter {
             console.log('  Cursor Position:')
             console.log(`    Row/Col: ${this.row}/${this.column}`)
             break
+          case 'J':
+            console.log(`  Erase in Display (ED), VT100.`)
+            switch (params[0]) {
+              case 1:
+                console.log(`    Erase Above.`)
+                break;
+              default:
+
+            }
+          case 'K':
+            console.log(`Erase in Line (EL), VT100.`)
+            switch (params[0]) {
+              case 0:
+                console.log(`  Erase to Right (default).`)
+                break;
+              default:
+              console.log(`Uncaught EL: ${params[0]}`)
+            }
+            break
           case 'L':
             console.log('  Insert Ps Line(s) (default = 1) (IL):')
-            console.log(`    Lines: ${params.toString()}`)
+            switch (params[0]) {
+              case 0:
+              case 1:
+                console.log(`    Lines: ${1}`)
+                break;
+              default:
+                console.log(`    Lines: ${params[0]}`)
+            }
             break
           case 'S':
             console.log('  Scroll up Ps lines (default = 1) (SU):')
+            switch (params[0]) {
+              case 0:
+              case 1:
+                console.log(`    Lines: ${1}`)
+                break;
+              default:
+                console.log(`    Lines: ${params[0]}`)
+            }
             console.log(`    Lines: ${params.toString()}`)
             this.lines.push(this.line.substring(1))
             this.line = ""
@@ -257,43 +431,6 @@ class BrProcess extends EventEmitter {
 
       default:
         console.log(`unhandled collection: ${collected}`)
-    }
-  }
-
-  get terminal(){
-    return {
-      inst_p: (s)=>{
-        this.emit("print",s)
-        this.writeLog('print', s)
-      },
-      inst_o: (s)=>{
-        this.emit('osc', s)
-        this.writeLog('osc', s)
-      },
-      inst_x: (flag)=>{
-        this.emit("execute", flag.charCodeAt(0))
-        this.writeLog('execute', flag.charCodeAt(0))
-      },
-      inst_c: (collected, params, flag)=>{
-        this.emit("cursor", collected, params, flag)
-        this.writeLog('csi', collected, params, flag)
-      },
-      inst_e: (collected, flag)=>{
-        this.emit("escape", collected, flag)
-        this.writeLog('esc', collected, flag)
-      },
-      inst_H: (collected, params, flag)=>{
-        this.emit('dcs-Hook', collected, params, flag)
-        this.writeLog('dcs-Hook', collected, params, flag)
-      },
-      inst_P: (dcs)=>{
-        this.emit('dcs-Put', dcs)
-        this.writeLog('dcs-Put', dcs)
-      },
-      inst_U: ()=>{
-        this.emit('dcs-Unhook')
-        this.writeLog('dcs-Unhook')
-      }
     }
   }
 
@@ -356,15 +493,79 @@ class BrProcess extends EventEmitter {
 
       var license = ""
 
-      // check for initial load screen and simulate enter
-      ps.on('data',(s) => {
-        license+=s
-        if (PROMPT_FOR_KEYPRESS.test(s)){
-          // ps.removeListener('data',loadListen)
-          ps.write("\n")
-          resolve(ps)
+      this.ready = false
+
+      this.parser = new AnsiParser({
+        inst_p: (s)=>{
+          if (!this.ready && !this.splashed){
+            if (PROMPT_FOR_KEYPRESS.test(s)){
+              // ps.removeListener('data',loadListen)
+              ps.write("\n")
+            }
+            this._handlePrint(s)
+          } else if (this.splashed && !this.rea) {
+          } else {
+          }
+          this.writeLog('print', s)
+        },
+        inst_o: (s)=>{
+          this.emit('osc', s)
+          this.writeLog('osc', s)
+        },
+        inst_x: (flag)=>{
+          // Single character method
+          switch (flag) {
+            case 10:
+              console.log("Line Feed")
+              this.lines.push("\n")
+              break;
+            case 13:
+              console.log("Carriage Return")
+              this.lines.push("\r")
+              break;
+            case 15:
+              console.log("Shift In.")
+              break
+            default:
+
+          }
+          this.writeLog('execute', flag.charCodeAt(0))
+        },
+        inst_c: (collected, params, flag)=>{
+          var cursorChange = this._handleCSI(collected, params, flag)
+          if (this.shows===1 && cursorChange==="DECTCEM"){
+            console.log(this.lines)
+            license = this.lines.join("\r\n")
+            this.lines = []
+            resolve({ps, license})
+          }
+          // this.emit("cursor", collected, params, flag)
+          this.writeLog('csi', collected, params, flag)
+        },
+        inst_e: (collected, flag)=>{
+          this.emit("escape", collected, flag)
+          this.writeLog('esc', collected, flag)
+        },
+        inst_H: (collected, params, flag)=>{
+          this.emit('dcs-Hook', collected, params, flag)
+          this.writeLog('dcs-Hook', collected, params, flag)
+        },
+        inst_P: (dcs)=>{
+          this.emit('dcs-Put', dcs)
+          this.writeLog('dcs-Put', dcs)
+        },
+        inst_U: ()=>{
+          this.emit('dcs-Unhook')
+          this.writeLog('dcs-Unhook')
         }
       })
+
+      // check for initial load screen and simulate enter
+      ps.on('data',(data)=>{
+        this.parser.parse(data)
+      })
+      // ps.on('data',(s) => {
+      // })
     })
   }
 

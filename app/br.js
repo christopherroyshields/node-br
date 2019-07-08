@@ -10,6 +10,22 @@ class Br extends BrProcess {
       log:config.log
     })
     this.libs = config.libs
+    // this.on("ready",_onReady)
+  }
+  _onReady(){
+    for (var i = 0; i < this.libs.length; i++) {
+      if (this.isSource(libs[i])){
+        this.compile(libs[i])
+      }
+    }
+  }
+  _isSource(fileName){
+    var ext = path.extname(filename)
+    if (ext===".brs" || ext===".wbs"){
+      return true
+    } else {
+      return false
+    }
   }
   compile(sourceFilename){
     var saveName = this.getCompiledName(sourceFilename)

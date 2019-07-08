@@ -4,18 +4,30 @@ var hrstart = process.hrtime()
 br = new Br({
   log: true,
   libs: {
-    "testlib":["fntest"]
+    "testlib.brs":["fntest"]
   }
 })
 
 br.on("ready",(license)=>{
   console.log("license returned:" +license)
+
+  console.log(`copy:${br.copyright}`)
+  console.log(`config:${br.config_messages}`)
+  console.log(`license_text:${br.license_text}`)
+  console.log(`licensee:${br.licensee}`)
+  console.log(`licensee address:${br.licensee_address}`)
+  console.log(`serial:${br.serial}`)
+
+  console.log(`concurrency:${br.concurrency}`)
+  console.log(`stations:${br.stations}`)
+  console.log(`wsid:${br.wsid}`)
+
   var arrArg = ["arr1",80085]
   // br.lib("testlib",["test"])
-  br.compile("/br/testlib.brs")
-    .then((success)=>{
-      console.log(`program compiled:${success.toString()}`)
-    })
+  // br.compile("/br/testlib.brs")
+  //   .then((success)=>{
+  //     console.log(`program compiled:${success.toString()}`)
+  //   })
 
 
   // br.fn("test","testarg",1.1234,arrArg)
