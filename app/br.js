@@ -10,7 +10,7 @@ class Br extends BrProcess {
       log:config.log
     })
     this.libs = config.libs
-    // this.on("ready",_onReady)
+    this.on("ready",this._onReady)
   }
   _onReady(){
     for (var i = 0; i < this.libs.length; i++) {
@@ -104,51 +104,49 @@ class Br extends BrProcess {
     var argList = []
     var setList = []
     var getList = []
-    getList.push(`"{"`)
-    getList.push(`"results:["`)
+    getList.push(`print "{"`)
+    getList.push(`print '"results":['`)
     for (var arg in args) {
       if (args.hasOwnProperty(arg)) {
         switch (typeof args[arg]) {
           case "string":
-            dims.push(`arg${arg}$*${args[arg].length}`)
+            dims.push(`arg${arg}$*${Math.max(1024,args[arg].length)}`)
             argList.push(`arg${arg}$`)
             setList.push(`arg${arg}$="${args[arg]}"`)
-            getList.push(`arg${arg}$`)
+            getList.push(`print '"'&arg${arg}$&'"'`)
             break;
           case "number":
             dims.push(`arg${arg}`)
             argList.push(`arg${arg}`)
             setList.push(`arg${arg}=${args[arg]}`)
-            getList.push(`str$(arg${arg})`)
+            getList.push(`print str$(arg${arg})`)
             break;
           case "object":
             var stringCount = 0
             var numCount = 0
             var maxLen = 0
             getList.push(`print "["`)
+            getList.push(`for i = 1 to udim(arg${arg}$) !: print '"'&arg${arg}$(i)&'"' !: if i<udim(arg${arg}$) then print "," !: next i`)
+            getList.push(`if udim(arg${arg}$) and udim(arg${arg}$) then print ","`)
+            getList.push(`for i = 1 to udim(arg${arg}) !: print str$(arg${arg}(i)) !: if i<udim(arg${arg}) then print "," !: next i`)
+            getList.push(`print "]"`)
             for (var i = 0; i < args[arg].length; i++) {
               switch (typeof args[arg][i]) {
                 case "string":
                   stringCount++
                   maxLen = Math.max(args[arg][i].length,maxLen)
                   setList.push(`arg${arg}$(${stringCount})="${args[arg][i]}"`)
-                  getList.push(`arg${arg}$(${stringCount})`)
                   break;
                 case "number":
                   numCount++
                   setList.push(`arg${arg}(${numCount})=${args[arg][i]}`)
-                  getList.push(`str$(arg${arg}(${numCount}))`)
                   break;
                 default:
                   console.log("Invalid type [Object]")
               }
-              if (i<args[arg].length-1){
-                getList.push(`","`)
-              }
             }
-            getList.push(`"]"`)
             if (stringCount){
-              dims.push(`arg${arg}$(${stringCount})*${maxLen}`)
+              dims.push(`arg${arg}$(${stringCount})*${Math.max(maxLen,1024)}`)
               argList.push(`mat arg${arg}$`)
             }
             if (numCount){
@@ -160,11 +158,11 @@ class Br extends BrProcess {
         }
       }
       if (arg<args.length-1){
-        getList.push(`","`)
+        getList.push(`print ","`)
       }
     }
-    getList.push(`"]"`)
-    getList.push(`"}"`)
+    getList.push(`print "]"`)
+    getList.push(`print "}"`)
 
     var codeLines = []
     do {
@@ -172,7 +170,7 @@ class Br extends BrProcess {
     } while (dims.length)
 
     for (var lib in this.libs) {
-      codeLines.push(`LIBRARY "${lib}": ${this.libs[lib].join(",")}`)
+      codeLines.push(`LIBRARY "${this.getCompiledName(lib)}": ${this.libs[lib].join(",")}`)
     }
 
     do {
@@ -182,18 +180,23 @@ class Br extends BrProcess {
     codeLines.push(`LET fn${fn}(${argList.join(",")})`)
 
     do {
-      codeLines.push(`PRINT ${getList.shift()}`)
+      codeLines.push(`${getList.shift()}`)
     } while (getList.length)
 
     var withLineNums = ''
-    for (var i = 0; i < codeLines.length; i++) {
-      console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
-      this.sendCmd(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
-      // this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
-    }
 
-    this.sendCmd(`RUN\r`).then((res)=>{
-      console.log(res)
+    return new Promise((resolve,reject)=>{
+      for (var i = 0; i < codeLines.length; i++) {
+        console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
+        this.sendCmd(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
+        // this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
+      }
+
+      this.sendCmd(`RUN\r`).then((res)=>{
+        // console.log(res)
+        var results = JSON.parse(res.join(""))
+        resolve(results)
+      })
     })
     // this.sendCmd(withLineNums).then((res)=>{
     //   console.log(res)

@@ -91,6 +91,8 @@ class BrProcess extends EventEmitter {
     this.concurrency = null
     this.wsid = null
     this.splashed = false
+    this.programName = ""
+    this.message = ""
 
     this.shows = 0
     // ansi keycode event handlers
@@ -110,19 +112,18 @@ class BrProcess extends EventEmitter {
   _handleError(){
     // converts BR error to Javascript Exception
     // May want to expand to have more br error info
+    console.log(this)
     throw {
       name: "BR Error",
       message: `
       Error Number: ${this.error}
       Line: ${this.lineNum}
       Clause: ${this.clause}
+      Message: ${this.message}
       `
     }
   }
-  _handlePrint(s) {
-    console.log(`print: ${s}`)
-
-    // if last row
+  _parseLoadingText(s) {
     switch (this.row) {
       case 4:
         switch (this.column) {
@@ -268,50 +269,55 @@ class BrProcess extends EventEmitter {
         }
         break;
 
-      case this.brConfig.rows:
-        // this handles printing to last line which is the statusline
-        switch (this.column) {
-          case 1:
-            // seven
-            this.state = s
-            if (this.state==="ERROR  "){
-              this._handleError()
-            }
-            break;
-          case 8:
-            // one char
-            break;
-          case 9:
-            // 29
-            break;
-          case 38:
-            // one
-            break;
-          case 39:
-            // four
-            this.error = parseInt(s)
-            break;
-          case 44:
-            // line
-            this.lineNum = parseInt(s.substring(0,5))
-            this.clause = parseInt(s.substring(6))
-            break;
-          case 53:
-            // eight
-            break;
-          case 62:
-            break;
-          case 75:
-            this.version = s
-            // eight
-            break;
-          default:
-            console.log(`uncaught column:${this.column}`);
-        }
+      default:
+    }
+  }
+  _parseStatusLine(s) {
+    // if last row
+    switch (this.column) {
+      case 1:
+        // seven
+        this.state = s
+        break;
+      case 8:
+        // one char
+        break;
+      case 9:
+        // 29
+        this.message = s
+        break;
+      case 38:
+        // one
+        break;
+      case 39:
+        // four
+        this.error = parseInt(s)
+        break;
+      case 44:
+        // line
+        this.lineNum = parseInt(s.substring(0,5))
+        this.clause = parseInt(s.substring(6))
+        break;
+      case 49:
+        // line
+        this.programName = s
+        break;
+      case 53:
+        // eight
+        break;
+      case 62:
+        break;
+      case 75:
+        this.version = s
+        // eight
         break;
       default:
-      this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
+        console.log(`uncaught column:${this.column}`);
     }
+  }
+
+  _parseOutput(s){
+    this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
   }
 
   _handleCSI(collected, params, flag){
@@ -344,15 +350,22 @@ class BrProcess extends EventEmitter {
                 console.log(`    Show Cursor (DECTCEM)`)
                 this.shows+=1
                 console.log(`    Shows: ${this.shows}`)
-                // this.lines.shift()
+
+
+                if (this.state==="ERROR  "){
+                  this._handleError()
+                }
+                this.lines.shift()
 
                 // finish job
-                this.lines.push(this.line.substring(1))
-                this.line = ""
-                if (this.jobs.length){
-                  var job = this.jobs.shift()
-                  job.cb(this.lines)
-                  this.lines = []
+                if (this.ready){
+                  // this.lines.push(this.line.substring(1))
+                  this.line = ""
+                  if (this.jobs.length){
+                    var job = this.jobs.shift()
+                    job.cb(this.lines)
+                    this.lines = []
+                  }
                 }
                 return "DECTCEM"
                 break;
@@ -368,7 +381,7 @@ class BrProcess extends EventEmitter {
       case '':
         switch (flag) {
           case 'm':
-            console.log('  Graphics Mode:')
+            console.log(`  Graphics Mode:`)
             console.log(`    Text Attribute: ${ANSI_TEXT_ATTRIBUTES[params[0]]}`)
             console.log(`    Foreground Color: ${ANSI_FOREGROUND_COLORS[params[1]]}`)
             console.log(`    Background Color: ${ANSI_BACKGROUND_COLORS[params[2]]}`)
@@ -485,7 +498,7 @@ class BrProcess extends EventEmitter {
         name: 'xterm',
         cols: this.brConfig.cols,
         rows: this.brConfig.rows,
-        cwd: '/br',
+        cwd: '../br',
         env: {
           TERM: "xterm"
         }
@@ -493,18 +506,22 @@ class BrProcess extends EventEmitter {
 
       var license = ""
 
-      this.ready = false
-
       this.parser = new AnsiParser({
         inst_p: (s)=>{
-          if (!this.ready && !this.splashed){
-            if (PROMPT_FOR_KEYPRESS.test(s)){
-              // ps.removeListener('data',loadListen)
-              ps.write("\n")
-            }
-            this._handlePrint(s)
-          } else if (this.splashed && !this.rea) {
+          if (this.row===this.brConfig.rows){
+            this._parseStatusLine(s)
           } else {
+            if (!this.splashed){
+              if (PROMPT_FOR_KEYPRESS.test(s)){
+                // ps.removeListener('data',loadListen)
+                ps.write("\n")
+                this.splashed = true
+              } else {
+                this._parseLoadingText(s)
+              }
+            } else if (this.ready) {
+              this._parseOutput(s)
+            }
           }
           this.writeLog('print', s)
         },
@@ -514,30 +531,34 @@ class BrProcess extends EventEmitter {
         },
         inst_x: (flag)=>{
           // Single character method
-          switch (flag) {
-            case 10:
-              console.log("Line Feed")
-              this.lines.push("\n")
-              break;
-            case 13:
-              console.log("Carriage Return")
-              this.lines.push("\r")
-              break;
-            case 15:
-              console.log("Shift In.")
-              break
-            default:
-
+          if (this.ready){
+            switch (flag) {
+              case 10:
+                console.log("Line Feed")
+                this.lines.push("\n")
+                break;
+              case 13:
+                console.log("Carriage Return")
+                this.lines.push("\r")
+                break;
+              case 15:
+                console.log("Shift In.")
+                break
+              default:
+            }
           }
           this.writeLog('execute', flag.charCodeAt(0))
         },
         inst_c: (collected, params, flag)=>{
           var cursorChange = this._handleCSI(collected, params, flag)
-          if (this.shows===1 && cursorChange==="DECTCEM"){
-            console.log(this.lines)
-            license = this.lines.join("\r\n")
-            this.lines = []
-            resolve({ps, license})
+          console.log(cursorChange)
+          if (cursorChange==="DECTCEM"){
+            if (!this.ready){
+              console.log("READY")
+              this.ready = true
+              this.emit("ready")
+              resolve({ps, license})
+            }
           }
           // this.emit("cursor", collected, params, flag)
           this.writeLog('csi', collected, params, flag)

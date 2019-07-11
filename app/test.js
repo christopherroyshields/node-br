@@ -30,7 +30,10 @@ br.on("ready",(license)=>{
   //   })
 
 
-  // br.fn("test","testarg",1.1234,arrArg)
+  br.fn("test","testarg",1.1234,arrArg)
+    .then((results)=>{
+      console.log(results)
+    })
 
   // start time
   // hrend = process.hrtime(hrstart)
