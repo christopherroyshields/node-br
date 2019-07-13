@@ -1,0 +1,19 @@
+{
+  "name": "node-br",
+  "version": "0.0.1",
+  "description": "This is a tool to provide a Node.js interface to the Business Rules Programming Language through it's terminal interface",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/christopherroyshields/node-br.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/christopherroyshields/node-br/issues"
+  },
+  "homepage": "https://github.com/christopherroyshields/node-br#readme"
+}
