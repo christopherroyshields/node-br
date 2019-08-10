@@ -10,6 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "chalk": "^2.4.2",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.1.5",
     "node-ansiparser": "^2.2.0",
     "node-pty": "^0.8.1",
     "p-queue": "^6.0.2"

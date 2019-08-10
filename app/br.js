@@ -9,7 +9,7 @@ class Br extends BrProcess {
     super({
       log:config.log
     })
-    this.libs = config.libs
+    this.libs = config.libs || []
     this.on("ready",this._onReady)
   }
   _onReady(){
@@ -51,7 +51,7 @@ class Br extends BrProcess {
           for (var i = 0; i < lines.length; i++) {
             this.sendCmd(`${lines[i]}\r`)
           }
-          return this.sendCmd(`${saveCmd} ${saveName}\r`)
+          return this.sendCmd(`${saveCmd} :${saveName}\r`)
         })
         .then((result)=>{
           resolve(true)
@@ -68,6 +68,7 @@ class Br extends BrProcess {
         compiledName = path.basename(sourceFilename,'.brs')+'.br'
         break;
       default:
+        compiledName = sourceFilename+'.br'
     }
     return compiledName
   }
