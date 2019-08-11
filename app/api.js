@@ -14,7 +14,7 @@ const PORT = 3000
 
 
 br = new Br({
-  log: true
+  log: false
 })
 
 app.post('/api/v1/compile', function (req, res) {

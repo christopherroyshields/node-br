@@ -100,7 +100,7 @@ class BrProcess extends EventEmitter {
       .then(({ps, license})=>{
         this.ps = ps
         this.license = license
-        console.log("ready")
+        if (this.log) console.log("ready")
         this.emit("ready",this.license)
       })
   }
@@ -308,7 +308,7 @@ class BrProcess extends EventEmitter {
         // eight
         break;
       default:
-        console.log(`uncaught column:${this.column}`);
+        if (this.log) console.log(`uncaught column:${this.column}`);
     }
   }
 
@@ -317,35 +317,35 @@ class BrProcess extends EventEmitter {
   }
 
   _handleCSI(collected, params, flag){
-    console.log("Device Control String (DCS):")
+    if (this.log) console.log("Device Control String (DCS):")
     switch (collected) {
       case '?':
         switch (flag) {
           case 'l':
-            console.log(`  DEC Private Mode Reset (DECRST):`)
+            if (this.log) console.log(`  DEC Private Mode Reset (DECRST):`)
             // this.shows=0
             // this.running
             // this.grid[this.row][this.col]
             switch (params[0]) {
               case 25:
-                console.log(`    Hide Cursor (DECTCEM)`)
+                if (this.log) console.log(`    Hide Cursor (DECTCEM)`)
                 return "DECTCEM"
                 break;
               default:
-                console.log(`Uncaught Private Mode Reset: ${params[0]}`)
+                if (this.log) console.log(`Uncaught Private Mode Reset: ${params[0]}`)
             }
             break;
           case 'h':
-            console.log(`  DEC Private Mode Set (DECSET)`)
+            if (this.log) console.log(`  DEC Private Mode Set (DECSET)`)
             switch (params[0]) {
               case 7:
-                console.log(`    Auto-wrap Mode (DECAWM), VT100.`)
+                if (this.log) console.log(`    Auto-wrap Mode (DECAWM), VT100.`)
                 return "DECAWM"
                 break
               case 25:
-                console.log(`    Show Cursor (DECTCEM)`)
+                if (this.log) console.log(`    Show Cursor (DECTCEM)`)
                 this.shows+=1
-                console.log(`    Shows: ${this.shows}`)
+                if (this.log) console.log(`    Shows: ${this.shows}`)
 
 
                 if (this.state==="ERROR  "){
@@ -366,7 +366,7 @@ class BrProcess extends EventEmitter {
                 return "DECTCEM"
                 break;
               default:
-                console.log(`Uncaught Private Mode Set: ${params[0]}`)
+                if (this.log) console.log(`Uncaught Private Mode Set: ${params[0]}`)
             }
 
             break;
@@ -377,69 +377,69 @@ class BrProcess extends EventEmitter {
       case '':
         switch (flag) {
           case 'm':
-            console.log(`  Graphics Mode:`)
-            console.log(`    Text Attribute: ${ANSI_TEXT_ATTRIBUTES[params[0]]}`)
-            console.log(`    Foreground Color: ${ANSI_FOREGROUND_COLORS[params[1]]}`)
-            console.log(`    Background Color: ${ANSI_BACKGROUND_COLORS[params[2]]}`)
+            if (this.log) console.log(`  Graphics Mode:`)
+            if (this.log) console.log(`    Text Attribute: ${ANSI_TEXT_ATTRIBUTES[params[0]]}`)
+            if (this.log) console.log(`    Foreground Color: ${ANSI_FOREGROUND_COLORS[params[1]]}`)
+            if (this.log) console.log(`    Background Color: ${ANSI_BACKGROUND_COLORS[params[2]]}`)
             break
           case 'H':
             this.row=Math.max(1,params[0])
             this.column = params.length>1 ? params[1] : 1
 
-            console.log('  Cursor Position:')
-            console.log(`    Row/Col: ${this.row}/${this.column}`)
+            if (this.log) console.log('  Cursor Position:')
+            if (this.log) console.log(`    Row/Col: ${this.row}/${this.column}`)
             break
           case 'J':
-            console.log(`  Erase in Display (ED), VT100.`)
+            if (this.log) console.log(`  Erase in Display (ED), VT100.`)
             switch (params[0]) {
               case 1:
-                console.log(`    Erase Above.`)
+                if (this.log) console.log(`    Erase Above.`)
                 break;
               default:
 
             }
           case 'K':
-            console.log(`Erase in Line (EL), VT100.`)
+            if (this.log) console.log(`Erase in Line (EL), VT100.`)
             switch (params[0]) {
               case 0:
-                console.log(`  Erase to Right (default).`)
+                if (this.log) console.log(`  Erase to Right (default).`)
                 break;
               default:
-              console.log(`Uncaught EL: ${params[0]}`)
+              if (this.log) console.log(`Uncaught EL: ${params[0]}`)
             }
             break
           case 'L':
-            console.log('  Insert Ps Line(s) (default = 1) (IL):')
+            if (this.log) console.log('  Insert Ps Line(s) (default = 1) (IL):')
             switch (params[0]) {
               case 0:
               case 1:
-                console.log(`    Lines: ${1}`)
+                if (this.log) console.log(`    Lines: ${1}`)
                 break;
               default:
-                console.log(`    Lines: ${params[0]}`)
+                if (this.log) console.log(`    Lines: ${params[0]}`)
             }
             break
           case 'S':
-            console.log('  Scroll up Ps lines (default = 1) (SU):')
+            if (this.log) console.log('  Scroll up Ps lines (default = 1) (SU):')
             switch (params[0]) {
               case 0:
               case 1:
-                console.log(`    Lines: ${1}`)
+                if (this.log) console.log(`    Lines: ${1}`)
                 break;
               default:
-                console.log(`    Lines: ${params[0]}`)
+                if (this.log) console.log(`    Lines: ${params[0]}`)
             }
-            console.log(`    Lines: ${params.toString()}`)
+            if (this.log) console.log(`    Lines: ${params.toString()}`)
             this.lines.push(this.line.substring(1))
             this.line = ""
             break
           default:
-            console.log(`  Unhandled flag: ${flag}`)
+            if (this.log) console.log(`  Unhandled flag: ${flag}`)
         }
         break;
 
       default:
-        console.log(`unhandled collection: ${collected}`)
+        if (this.log) console.log(`unhandled collection: ${collected}`)
     }
   }
 
@@ -519,60 +519,60 @@ class BrProcess extends EventEmitter {
               this._parseOutput(s)
             }
           }
-          console.log('print', s)
+          if (this.log) console.log('print', s)
         },
         inst_o: (s)=>{
-          console.log('osc', s)
+          if (this.log) console.log('osc', s)
         },
         inst_x: (flag)=>{
           // Single character method
           if (this.ready){
             switch (flag) {
               case 10:
-                console.log("Line Feed")
+                if (this.log) console.log("Line Feed")
                 this.lines.push("\n")
                 break;
               case 13:
-                console.log("Carriage Return")
+                if (this.log) console.log("Carriage Return")
                 this.lines.push("\r")
                 break;
               case 15:
-                console.log("Shift In.")
+                if (this.log) console.log("Shift In.")
                 break
               default:
-              console.log('unhadled single character execute', flag.charCodeAt(0))
+              if (this.log) console.log('unhadled single character execute', flag.charCodeAt(0))
             }
           }
         },
         inst_c: (collected, params, flag)=>{
           var cursorChange = this._handleCSI(collected, params, flag)
-          // console.log(cursorChange)
+          // if (this.log) console.log(cursorChange)
           if (cursorChange==="DECTCEM"){
             if (!this.ready){
-              console.log("READY")
+              if (this.log) console.log("READY")
               this.ready = true
               // this.emit("ready")
               resolve({ps, license})
             }
           }
           // this.emit("cursor", collected, params, flag)
-          // console.log('csi', collected, params, flag)
+          // if (this.log) console.log('csi', collected, params, flag)
         },
         inst_e: (collected, flag)=>{
           // this.emit("escape", collected, flag)
-          console.log('esc', collected, flag)
+          if (this.log) console.log('esc', collected, flag)
         },
         inst_H: (collected, params, flag)=>{
           // this.emit('dcs-Hook', collected, params, flag)
-          console.log('dcs-Hook', collected, params, flag)
+          if (this.log) console.log('dcs-Hook', collected, params, flag)
         },
         inst_P: (dcs)=>{
           // this.emit('dcs-Put', dcs)
-          console.log('dcs-Put', dcs)
+          if (this.log) console.log('dcs-Put', dcs)
         },
         inst_U: ()=>{
           // this.emit('dcs-Unhook')
-          console.log('dcs-Unhook')
+          if (this.log) console.log('dcs-Unhook')
         }
       })
 
