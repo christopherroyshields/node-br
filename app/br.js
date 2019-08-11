@@ -54,7 +54,7 @@ class Br extends BrProcess {
           return this.sendCmd(`${saveCmd} :${saveName}\r`)
         })
         .then((result)=>{
-          resolve(true)
+          resolve(saveName)
         })
     })
   }

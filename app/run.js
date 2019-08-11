@@ -96,24 +96,18 @@ class BrProcess extends EventEmitter {
 
     this.shows = 0
     // ansi keycode event handlers
-    this._startLog(log, filename)
-      .then((log)=>{
-        this.log = log
-        return this.spawnBr(...args)
-      })
+    this.spawnBr(...args)
       .then(({ps, license})=>{
         this.ps = ps
         this.license = license
-        // console.log("ready")
+        console.log("ready")
         this.emit("ready",this.license)
       })
-
   }
   _handleError(){
     // converts BR error to Javascript Exception
     // May want to expand to have more br error info
-    console.log(this)
-    throw {
+    var err = {
       name: "BR Error",
       message: `
       Error Number: ${this.error}
@@ -122,6 +116,8 @@ class BrProcess extends EventEmitter {
       Message: ${this.message}
       `
     }
+    console.error(err)
+    throw err
   }
   _parseLoadingText(s) {
     switch (this.row) {
@@ -523,11 +519,10 @@ class BrProcess extends EventEmitter {
               this._parseOutput(s)
             }
           }
-          this.writeLog('print', s)
+          console.log('print', s)
         },
         inst_o: (s)=>{
-          this.emit('osc', s)
-          this.writeLog('osc', s)
+          console.log('osc', s)
         },
         inst_x: (flag)=>{
           // Single character method
@@ -545,39 +540,39 @@ class BrProcess extends EventEmitter {
                 console.log("Shift In.")
                 break
               default:
+              console.log('unhadled single character execute', flag.charCodeAt(0))
             }
           }
-          this.writeLog('execute', flag.charCodeAt(0))
         },
         inst_c: (collected, params, flag)=>{
           var cursorChange = this._handleCSI(collected, params, flag)
-          console.log(cursorChange)
+          // console.log(cursorChange)
           if (cursorChange==="DECTCEM"){
             if (!this.ready){
               console.log("READY")
               this.ready = true
-              this.emit("ready")
+              // this.emit("ready")
               resolve({ps, license})
             }
           }
           // this.emit("cursor", collected, params, flag)
-          this.writeLog('csi', collected, params, flag)
+          // console.log('csi', collected, params, flag)
         },
         inst_e: (collected, flag)=>{
-          this.emit("escape", collected, flag)
-          this.writeLog('esc', collected, flag)
+          // this.emit("escape", collected, flag)
+          console.log('esc', collected, flag)
         },
         inst_H: (collected, params, flag)=>{
-          this.emit('dcs-Hook', collected, params, flag)
-          this.writeLog('dcs-Hook', collected, params, flag)
+          // this.emit('dcs-Hook', collected, params, flag)
+          console.log('dcs-Hook', collected, params, flag)
         },
         inst_P: (dcs)=>{
-          this.emit('dcs-Put', dcs)
-          this.writeLog('dcs-Put', dcs)
+          // this.emit('dcs-Put', dcs)
+          console.log('dcs-Put', dcs)
         },
         inst_U: ()=>{
-          this.emit('dcs-Unhook')
-          this.writeLog('dcs-Unhook')
+          // this.emit('dcs-Unhook')
+          console.log('dcs-Unhook')
         }
       })
 
