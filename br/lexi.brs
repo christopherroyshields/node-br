@@ -23,7 +23,7 @@ dim multicomment$*5000,backstring$*5000
 
 dim BRProgram$(1)*2000
 
-def library fnApplyLexi(&InFile$,&OutFile$;DontAddLineNumbers)
+def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,OutFile,Increment,LabelIncrement)
    let fnSetLexiConstants
 
    let Increment=1
@@ -31,12 +31,12 @@ def library fnApplyLexi(&InFile$,&OutFile$;DontAddLineNumbers)
    mat Constname$(0)
    mat Const$(0)
    str2mat('=|+|-|+=|-=|*|/|,|&|(| and| or',mat continuations$,'|')
-   open #1: "name="&Infile$, display, input
-   open #2: "name="&Outfile$&", recl=800, replace", display, output
-   READLINE: linput #1: String$ eof DONEREADING
+   open #(InFile:=FngetfileNo): "name="&Infile$, display, input
+   open #(OutFile:=fnGetFileNo): "name="&Outfile$&", recl=800, replace", display, output
+   READLINE: linput #InFile: String$ eof DONEREADING
 
       do while (WrapPosition:=pos(String$,LineWrapCommand$))
-         linput #1: String2$ eof Ignore
+         linput #InFile: String2$ eof Ignore
          if file(1)=0 then
             let String$=rtrm$(String$(1:WrapPosition-1))&" "&trim$(String2$)
          end if
@@ -47,7 +47,7 @@ def library fnApplyLexi(&InFile$,&OutFile$;DontAddLineNumbers)
       continuationfound = 0
       continuationposition = fncontinuationpos(string$,multicomment$,mat continuations$)
       do while continuationposition
-         linput #1: String2$ eof DONEREADING
+         linput #InFile: String2$ eof DONEREADING
          continuationposition = fncontinuationpos(string2$,multicomment$,mat continuations$)
          String$=rtrm$(String$)&' '&trim$(String2$)
          continuationfound = 1
@@ -85,7 +85,7 @@ def library fnApplyLexi(&InFile$,&OutFile$;DontAddLineNumbers)
                let SpecialPosition+=1
                if SpecialPosition>len(String$) then
                   ! Read the next string and put it on here.
-                  linput #1: String2$ eof Ignore
+                  linput #InFile: String2$ eof Ignore
                   if file(1)=0 then
                      let String$=String$&"""&hex$(""0d0a"")&"""&trim$(String2$)
                      let SpecialPosition+=15
@@ -234,7 +234,7 @@ def library fnApplyLexi(&InFile$,&OutFile$;DontAddLineNumbers)
          let Temp=Val(String$(Newnumber+12:Newincrement:=Pos(String$,",",Newnumber+12))) conv BADAUTONUMBER
          if Temp=0 then goto BADAUTONUMBER
          let Newlinecount=Temp
-         if Newlinecount<=Linecount then print "AUTONUMBER ERROR IN "&Str$(Lastlinecount)&" TO "&Str$(Newlinecount)&" AUTONUMBER SECTION" : close #1: : close #2: : execute ("*FREE "&Outfile$) : print Bell : pause : execute ("SYSTEM")
+         if Newlinecount<=Linecount then print "AUTONUMBER ERROR IN "&Str$(Lastlinecount)&" TO "&Str$(Newlinecount)&" AUTONUMBER SECTION" : close #InFile: : close #OutFile: : execute ("*FREE "&Outfile$) : print Bell : pause : execute ("SYSTEM")
          let Lastlinecount=Linecount=Newlinecount
          let Increment=Val(String$(Newincrement+1:4000)) conv BADAUTONUMBER
          let Linecount-=Increment ! Decrement So Next Increment Is Correct
@@ -266,12 +266,12 @@ def library fnApplyLexi(&InFile$,&OutFile$;DontAddLineNumbers)
       end if
    PRINTLINE: !
       if Trim$(String$)(Len(Trim$(String$))-1:Len(Trim$(String$))) = "!:" then let Skipnextone=1
-      print #2: String$
+      print #OutFile: String$
    goto READLINE
 
 DONEREADING: !
-   close #2:
-   close #1:
+   close #OutFile:
+   close #InFile:
 fnend
 !
 def fncontinuationpos( &strng$, &multicomment$, mat continuations$;___,exclsrchstart,continuationpos,singlequotecount,doublequotecount,exclpos,colonpos,i,tempstr$*5000,tempcomm$*5000)
@@ -324,13 +324,21 @@ def fnSetLexiConstants
    let CommentEndCommand$="*"&"/"
 fnend
 
-def library fnUndoLexi(&InFile$,&OutFile$)
+def FngetfileNo(;___,I)
+   do
+      I+=1
+      if I>=199 and I<300 then let I=300  ! Skip over the invalid 200s
+   loop until File(I)=-1
+   let FngetfileNo=(I)
+fnend
+
+def library fnUndoLexi(InFile$*255,OutFile$*255)
    let fnSetLexiConstants
 
-   open #1: "name="&Infile$&", recl=800", display, input
-   open #2: "name="&Outfile$&", recl=800, replace", display, output
+   open #(InFile:=FngetfileNo): "name="&Infile$&", recl=800", display, input
+   open #(OutFile:=fnGetFileNo): "name="&Outfile$&", recl=800, replace", display, output
 
-READLINEUNDO: linput #1: String$ eof DONEREADINGUNDO
+READLINEUNDO: linput #InFile: String$ eof DONEREADINGUNDO
    for Constindex=1 to Udim(Mat Const$)
       if (Constantposition:=Pos(Uprc$(String$),Uprc$(Const$(Constindex)))) then
          let String$=String$(1:Constantposition-1) & Constname$(Constindex) & String$(Constantposition+Len(Const$(Constindex)):Len(String$))
@@ -379,11 +387,11 @@ READLINEUNDO: linput #1: String$ eof DONEREADINGUNDO
    let X=Val(String$(1:5)) conv NOLINENUMBER
    if (X>0) And String$(6:6)=" " then let String$=String$(6:4000)
 NOLINENUMBER: ! A Line Has No Line Number At This Point
-   print #2: String$
+   print #OutFile: String$
    goto READLINEUNDO
 DONEREADINGUNDO: !
-   close #2:
-   close #1:
+   close #OutFile:
+   close #InFile:
 fnend
 
 Ignore: Continue
