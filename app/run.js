@@ -3,7 +3,6 @@ const EventEmitter = require('events');
 const pty = require('node-pty')
 const fs = require('fs')
 const os = require('os')
-const {default: PQueue} = require('p-queue');
 const AnsiParser = require('node-ansiparser');
 const chalk = require('chalk');
 
@@ -61,20 +60,11 @@ class BrProcess extends EventEmitter {
 
     this.prompted = false;
 
-    this.queue = new PQueue({
-      concurrency:1
-    })
-
-    this.commandQueue = new PQueue({
-      concurrency:1
-    })
-
     this.brConfig = {
       rows: 25,
       cols: 80
     }
 
-    this.q = []
     this.idle = false
     this.ready = false
     this.jobs = []
@@ -443,32 +433,6 @@ class BrProcess extends EventEmitter {
     }
   }
 
-  _startLog(log, filename){
-    return new Promise((resolve,reject)=>{
-      if (log){
-        fs.open(filename, 'w+', (err, fd) => {
-          if (err) {
-            reject(err)
-            return
-          }
-          fs.write(fd,"\r***********\rlog started\r***************\r",(err)=>{
-            if (err) {
-              reject(err)
-              return
-            }
-            resolve(fd)
-          })
-        });
-      } else {
-        resolve(false)
-      }
-    })
-  }
-
-  getVersion(){
-    return "4.32c"
-  }
-
   getVal(variable,val){
 
   }
@@ -585,17 +549,6 @@ class BrProcess extends EventEmitter {
     })
   }
 
-  async writeLog(...args){
-    await this.queue.add(()=>{
-      return new Promise((resolve,reject)=>{
-        fs.write(this.log,`\r\n${JSON.stringify(args)}\r\n`,(err)=>{
-          if (err) reject(err)
-          resolve()
-        })
-      })
-    })
-  }
-
   write(cmd, cb){
     this.jobs.push({
       cmd: cmd,
@@ -604,13 +557,10 @@ class BrProcess extends EventEmitter {
     this.ps.write(cmd)
   }
 
-  async sendCmd(brCmd){
-    // if (this.ready){
-    return await this.commandQueue.add(()=>{
-      return new Promise((resolve,reject)=>{
-        this.write(brCmd, (result)=>{
-          resolve(result)
-        })
+  sendCmd(brCmd){
+    return new Promise((resolve,reject)=>{
+      this.write(brCmd, (result)=>{
+        resolve(result)
       })
     })
   }

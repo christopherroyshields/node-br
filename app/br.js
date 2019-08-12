@@ -1,5 +1,4 @@
 const BrProcess = require('./run.js')
-const queue = require('p-queue')
 const path = require('path')
 const fs = require('fs');
 const fsPromises = fs.promises;
@@ -186,18 +185,23 @@ class Br extends BrProcess {
 
     var withLineNums = ''
 
-    return new Promise((resolve,reject)=>{
-      for (var i = 0; i < codeLines.length; i++) {
-        console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
-        this.sendCmd(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
-        // this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
-      }
+    var commands = []
+    for (var i = 0; i < codeLines.length; i++) {
+      console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
+      commands.push(this.sendCmd(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`))
+      // this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
+    }
 
-      this.sendCmd(`RUN\r`).then((res)=>{
-        // console.log(res)
-        var results = JSON.parse(res.join(""))
-        resolve(results)
-      })
+    return new Promise((resolve)=>{
+      Promise.all(commands)
+        .then((resultList)=>{
+          return this.sendCmd(`RUN\r`)
+        })
+        .then((res)=>{
+          var results = JSON.parse(res.join(""))
+          console.log(results)
+          resolve(results)
+        })
     })
     // this.sendCmd(withLineNums).then((res)=>{
     //   console.log(res)
