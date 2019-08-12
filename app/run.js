@@ -94,7 +94,7 @@ class BrProcess extends EventEmitter {
         this.emit("ready",this.license)
       })
   }
-  _handleError(){
+  _handleError(cmd){
     // converts BR error to Javascript Exception
     // May want to expand to have more br error info
     var err = {
@@ -104,10 +104,13 @@ class BrProcess extends EventEmitter {
       Line: ${this.lineNum}
       Clause: ${this.clause}
       Message: ${this.message}
-      `
+      Command: ${cmd}
+      `,
+      command: cmd
     }
     console.error(err)
-    throw err
+    // throw err
+    return err
   }
   _parseLoadingText(s) {
     switch (this.row) {
@@ -339,7 +342,9 @@ class BrProcess extends EventEmitter {
 
 
                 if (this.state==="ERROR  "){
-                  this._handleError()
+                  var job = this.jobs.shift()
+                  job.cb(this._handleError(job.cmd), this.lines)
+                  this.lines = []
                 }
                 this.lines.shift()
 
@@ -349,7 +354,7 @@ class BrProcess extends EventEmitter {
                   this.line = ""
                   if (this.jobs.length){
                     var job = this.jobs.shift()
-                    job.cb(this.lines)
+                    job.cb(null, this.lines)
                     this.lines = []
                   }
                 }
@@ -559,7 +564,8 @@ class BrProcess extends EventEmitter {
 
   sendCmd(brCmd){
     return new Promise((resolve,reject)=>{
-      this.write(brCmd, (result)=>{
+      this.write(brCmd, (err, result)=>{
+        if (err) reject(err)
         resolve(result)
       })
     })

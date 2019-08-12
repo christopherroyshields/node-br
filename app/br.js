@@ -190,18 +190,32 @@ class Br extends BrProcess {
       console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
       commands.push(this.sendCmd(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`))
       // this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
+      if (i===codeLines.length-1){
+        commands.push(this.sendCmd(`${(i+2).toString().padStart(5,0)} stop\r`))
+      }
     }
 
-    return new Promise((resolve)=>{
+    return new Promise((resolve, reject)=>{
+      var results = {}
       Promise.all(commands)
         .then((resultList)=>{
           return this.sendCmd(`RUN\r`)
         })
-        .then((res)=>{
-          var results = JSON.parse(res.join(""))
+        .then((runResult)=>{
+          results = JSON.parse(runResult.join(""))
           console.log(results)
+          return this.sendCmd(`CLEAR ALL\r`)
+        })
+        .then((clearResults)=>{
+          console.log(clearResults)
           resolve(results)
         })
+        .catch((err)=>{
+          reject(err)
+        })
+        // .finally(()=>{
+        //   this.sendCmd(`cl\r`)
+        // })
     })
     // this.sendCmd(withLineNums).then((res)=>{
     //   console.log(res)
