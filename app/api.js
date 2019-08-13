@@ -91,6 +91,9 @@ app.post('/api/v1/compile', (req, res) => {
       return br.sendCmd(`SAVE :${req.files.source.tempFilePath}.br\r`)
     })
     .then(()=>{
+      return br.sendCmd(`CLEAR\r`)
+    })
+    .then(()=>{
       outputFile = `${req.files.source.tempFilePath}.br`
       console.log(outputFile);
 
