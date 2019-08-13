@@ -79,50 +79,66 @@ app.post('/api/v1/decompile', function(req, res) {
     })
 })
 
+app.put('/api/v1/compile', (req, res) => {
+  debugger
+})
+
 app.post('/api/v1/compile', (req, res) => {
-  br.fn("ApplyLexi",":"+req.files.source.tempFilePath,":"+req.files.source.tempFilePath+".out")
-    .catch((err)=>{
-      res.status(400).send({ error: 'Could not compile!' })
+  var sourceFile = req.files.source.tempFilePath
+  var outputFile = `${sourceFile}.out`
+  var objectFile = `${sourceFile}.br`
+  console.log("Lexifying...");
+  br.fn("ApplyLexi",":"+sourceFile,":"+outputFile)
+    .then(()=>{
+      console.log("Saving to '.br'...");
+      fs.unlink(sourceFile, (err) => {
+        if (err) {
+          console.log(`${sourceFile} was NOT deleted`);
+        } else {
+          console.log(`${sourceFile} was deleted`);
+        }
+      });
+      return br.sendCmd([
+        `LOAD :${outputFile},SOURCE`,
+        `SAVE :${objectFile}`,
+        `CLEAR`
+      ])
     })
     .then(()=>{
-      return br.sendCmd(`LOAD :${req.files.source.tempFilePath}.out,SOURCE\r`)
-    })
-    .then(()=>{
-      return br.sendCmd(`SAVE :${req.files.source.tempFilePath}.br\r`)
-    })
-    .then(()=>{
-      return br.sendCmd(`CLEAR\r`)
-    })
-    .then(()=>{
-      outputFile = `${req.files.source.tempFilePath}.br`
-      console.log(outputFile);
-
-      var stat = fs.statSync(outputFile);
-
+      fs.unlink(outputFile, (err) => {
+        if (err) {
+          console.log(`${outputFile} was NOT deleted`);
+        } else {
+          console.log(`${outputFile} was deleted`);
+        }
+      });
+      console.log("Sending back");
+      var stat = fs.statSync(objectFile);
       res.writeHead(200, {
           'Content-Type': 'application/octet-stream',
           'Content-Length': stat.size
       });
 
-      var readStream = fs.createReadStream(outputFile);
+      var readStream = fs.createReadStream(objectFile);
       // We replaced all the event handlers with a simple call to readStream.pipe()
       readStream.pipe(res);
 
-      fs.unlink(req.files.source.tempFilePath, (err) => {
-        if (err) throw err;
-        console.log(`${req.files.source.tempFilePath} was deleted`);
-      });
-
-      fs.unlink(outputFile, (err) => {
-        if (err) throw err;
-        console.log(`${outputFile} was deleted`);
-      });
-
-      fs.unlink(req.files.source.tempFilePath+".out", (err) => {
-        if (err) throw err;
-        console.log(`${req.files.source.tempFilePath}.out was deleted`);
-      });
-
+      res.on('finish', ()=>{
+        console.log("finished sending")
+        fs.unlink(objectFile, (err) => {
+          if (err) {
+            console.log(`${objectFile} was NOT deleted`);
+          } else {
+            console.log(`${objectFile} was deleted`);
+          }
+        });
+      })
+    })
+    .catch((err)=>{
+      console.log("Error!");
+      res.status(400).send({
+        error: err.message
+      })
     })
 })
 

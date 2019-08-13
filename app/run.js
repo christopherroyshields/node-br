@@ -94,21 +94,65 @@ class BrProcess extends EventEmitter {
         this.emit("ready",this.license)
       })
   }
+
+  _write(cmd, cb){
+    this.jobs.push({
+      cmd: cmd,
+      cb: cb
+    })
+    this.ps.write(cmd)
+  }
+
+  sendCmd(brCmd){
+    var cmdList = []
+    if (typeof brCmd === "object"){
+      cmdList = [...brCmd]
+    } else if (typeof brCmd === "string") {
+      if (brCmd.includes("\r")){
+        var cmdList = brCmd.split("\r")
+      } else {
+        cmdList.push(brCmd)
+      }
+    }
+    var jobs = []
+    for (var i = 0; i < cmdList.length; i++) {
+      cmdList[i].replace("\r","")
+      cmdList[i].replace("\n","")
+      if (cmdList[i].trim().length){
+        jobs.push(new Promise((resolve,reject)=>{
+          console.log("Writing Command: "+cmdList[i]+"\r");
+          this._write(cmdList[i]+"\r", (err, result)=>{
+            if (err) {
+              reject(err)
+            } else {
+              resolve(result)
+            }
+          })
+        }))
+      }
+    }
+    return new Promise((resolve,reject)=>{
+      Promise.all(jobs)
+        .catch((err)=>{
+          reject(err)
+        })
+        .then((result)=>{
+          resolve(result)
+        })
+    })
+  }
   _handleError(cmd){
     // converts BR error to Javascript Exception
     // May want to expand to have more br error info
     var err = {
       name: "BR Error",
-      message: `
-      Error Number: ${this.error}
-      Line: ${this.lineNum}
-      Clause: ${this.clause}
-      Message: ${this.message}
-      Command: ${cmd}
-      `,
+      message: this.message,
+      error: this.error,
+      line: this.lineNum,
+      clause: this.clause,
       command: cmd
     }
-    console.error(err)
+    // console.error(err)
     // throw err
     return err
   }
@@ -554,22 +598,6 @@ class BrProcess extends EventEmitter {
     })
   }
 
-  write(cmd, cb){
-    this.jobs.push({
-      cmd: cmd,
-      cb: cb
-    })
-    this.ps.write(cmd)
-  }
-
-  sendCmd(brCmd){
-    return new Promise((resolve,reject)=>{
-      this.write(brCmd, (err, result)=>{
-        if (err) reject(err)
-        resolve(result)
-      })
-    })
-  }
 }
 
 module.exports = BrProcess

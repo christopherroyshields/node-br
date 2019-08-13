@@ -187,35 +187,24 @@ class Br extends BrProcess {
 
     var commands = []
     for (var i = 0; i < codeLines.length; i++) {
-      console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
-      commands.push(this.sendCmd(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`))
-      // this.sendCmd(`${i.toString()} ${codeLines[i]}\r`)
+      // console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
+      commands.push(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}`)
       if (i===codeLines.length-1){
-        commands.push(this.sendCmd(`${(i+2).toString().padStart(5,0)} stop\r`))
+        commands.push(`${(i+2).toString().padStart(5,0)} stop`)
       }
     }
+    commands.push(`RUN`)
+    commands.push(`CLEAR ALL`)
 
     return new Promise((resolve, reject)=>{
-      var results = {}
-      Promise.all(commands)
-        .then((resultList)=>{
-          return this.sendCmd(`RUN\r`)
-        })
+      this.sendCmd(commands)
         .then((runResult)=>{
-          results = JSON.parse(runResult.join(""))
-          console.log(results)
-          return this.sendCmd(`CLEAR ALL\r`)
-        })
-        .then((clearResults)=>{
-          console.log(clearResults)
+          var results = JSON.parse(runResult[runResult.length-2].join(""))
           resolve(results)
         })
         .catch((err)=>{
           reject(err)
         })
-        // .finally(()=>{
-        //   this.sendCmd(`cl\r`)
-        // })
     })
     // this.sendCmd(withLineNums).then((res)=>{
     //   console.log(res)
