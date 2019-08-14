@@ -4,3 +4,4 @@ br/wbserver.dat
 log.txt
 *.bak
 **/node_modules
+br/tmp/*
