@@ -90,28 +90,25 @@ app.post('/api/v1/compile', (req, res) => {
   console.log("Lexifying...");
   br.fn("ApplyLexi",":"+sourceFile,":"+outputFile)
     .then(()=>{
-      console.log("Saving to '.br'...");
-      fs.unlink(sourceFile, (err) => {
-        if (err) {
-          console.log(`${sourceFile} was NOT deleted`);
-        } else {
-          console.log(`${sourceFile} was deleted`);
-        }
-      });
+      console.log("Loading...");
       return br.sendCmd([
-        `LOAD :${outputFile},SOURCE`,
-        `SAVE :${objectFile}`,
-        `CLEAR`
+        `LOAD :${outputFile},SOURCE`
       ])
     })
     .then(()=>{
-      fs.unlink(outputFile, (err) => {
-        if (err) {
-          console.log(`${outputFile} was NOT deleted`);
-        } else {
-          console.log(`${outputFile} was deleted`);
-        }
-      });
+      console.log("Saving to '.br'...");
+      return br.sendCmd([
+        `SAVE :${objectFile}`
+      ])
+    })
+    .then(()=>{
+      // fs.unlink(outputFile, (err) => {
+      //   if (err) {
+      //     console.log(`${outputFile} was NOT deleted`);
+      //   } else {
+      //     console.log(`${outputFile} was deleted`);
+      //   }
+      // });
       console.log("Sending back");
       var stat = fs.statSync(objectFile);
       res.writeHead(200, {
@@ -125,13 +122,13 @@ app.post('/api/v1/compile', (req, res) => {
 
       res.on('finish', ()=>{
         console.log("finished sending")
-        fs.unlink(objectFile, (err) => {
-          if (err) {
-            console.log(`${objectFile} was NOT deleted`);
-          } else {
-            console.log(`${objectFile} was deleted`);
-          }
-        });
+        // fs.unlink(objectFile, (err) => {
+        //   if (err) {
+        //     console.log(`${objectFile} was NOT deleted`);
+        //   } else {
+        //     console.log(`${objectFile} was deleted`);
+        //   }
+        // });
       })
     })
     .catch((err)=>{
