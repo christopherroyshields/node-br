@@ -120,10 +120,12 @@ class BrProcess extends EventEmitter {
       cmdList[i].replace("\n","")
       if (cmdList[i].trim().length){
         jobs.push(new Promise((resolve,reject)=>{
-          console.log("Writing Command: "+cmdList[i]+"\r");
-          this._write(cmdList[i]+"\r", (err, result)=>{
-            if (err) {
-              reject(err)
+          var cmd = cmdList[i]
+          console.log("job added:"+cmd)
+          this._write(cmdList[i]+"\r", (result)=>{
+            console.log("job finised:"+cmd)
+            if (this.state==="ERROR") {
+              reject(this._handleError(cmd))
             } else {
               resolve(result)
             }
@@ -152,7 +154,7 @@ class BrProcess extends EventEmitter {
       clause: this.clause,
       command: cmd
     }
-    // console.error(err)
+    console.error(err)
     // throw err
     return err
   }
@@ -310,7 +312,7 @@ class BrProcess extends EventEmitter {
     switch (this.column) {
       case 1:
         // seven
-        this.state = s
+        this.state = s.trim()
         break;
       case 8:
         // one char
@@ -384,12 +386,6 @@ class BrProcess extends EventEmitter {
                 this.shows+=1
                 if (this.log) console.log(`    Shows: ${this.shows}`)
 
-
-                if (this.state==="ERROR  "){
-                  var job = this.jobs.shift()
-                  job.cb(this._handleError(job.cmd), this.lines)
-                  this.lines = []
-                }
                 this.lines.shift()
 
                 // finish job
@@ -398,7 +394,7 @@ class BrProcess extends EventEmitter {
                   this.line = ""
                   if (this.jobs.length){
                     var job = this.jobs.shift()
-                    job.cb(null, this.lines)
+                    job.cb(this.lines)
                     this.lines = []
                   }
                 }
