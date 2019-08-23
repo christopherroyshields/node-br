@@ -7,3 +7,6 @@
 Dockerfile
 README.md
 **/node_modules
+./br/testlib.br
+npm-debug.log
+docker-stack.yml
