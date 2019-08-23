@@ -13,15 +13,11 @@ app.use(fileUpload({
 }));
 
 br = new Br({
-  log: false,
+  log: true,
   libs: {
     "lexi":["fnApplyLexi"]
   }
 })
-
-// app.get('/', (req,res)=>{
-//
-// })
 
 app.get('/api/v1/decompile', function(req,res) {
   var form = `
@@ -137,6 +133,10 @@ app.post('/api/v1/compile', (req, res) => {
         error: err.message
       })
     })
+})
+
+br.on("load_error", (errors)=>{
+  throw new Error("Error loading BR.\n" + errors.join("\n"))
 })
 
 br.on("ready", ()=>{

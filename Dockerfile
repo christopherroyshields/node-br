@@ -13,7 +13,6 @@ COPY . /
 WORKDIR /app
 RUN npm i
 
+EXPOSE 9229 3000
 
-EXPOSE 9229
-
-CMD ["node","run"]
+CMD ["node","api.js"]

@@ -6,6 +6,7 @@ const os = require('os')
 const AnsiParser = require('node-ansiparser');
 const chalk = require('chalk');
 
+const PROMT_TO_END = /Press any key to exit./
 const PROMPT_FOR_KEYPRESS = /Press any key to continue ..../
 
 const ANSI_TEXT_ATTRIBUTES = []
@@ -83,6 +84,7 @@ class BrProcess extends EventEmitter {
     this.splashed = false
     this.programName = ""
     this.message = ""
+    this.load_errors = []
 
     this.shows = 0
     // ansi keycode event handlers
@@ -267,6 +269,23 @@ class BrProcess extends EventEmitter {
         }
         break
 
+      case 21:
+        switch (this.column) {
+          case 1:
+            this.load_errors.push(s)
+            break;
+          default:
+        }
+
+      case 22:
+        switch (this.column) {
+          case 1:
+            this.load_errors.push(s)
+            break;
+          default:
+        }
+
+
       case 23:
         // if still loading config messages are print on line 23
         switch (this.column) {
@@ -299,6 +318,9 @@ class BrProcess extends EventEmitter {
             if (s==="Press any key to continue ....") {
               this.splashed = true
             }
+            break;
+          case 80:
+            this.load_errors.push(s)
             break;
           default:
         }
@@ -517,7 +539,10 @@ class BrProcess extends EventEmitter {
             this._parseStatusLine(s)
           } else {
             if (!this.splashed){
-              if (PROMPT_FOR_KEYPRESS.test(s)){
+              if (PROMT_TO_END.test(s)){
+                ps.write("\n")
+                this.emit("load_error",this.load_errors)
+              } else if (PROMPT_FOR_KEYPRESS.test(s)){
                 // ps.removeListener('data',loadListen)
                 ps.write("\n")
                 this.splashed = true
@@ -589,8 +614,6 @@ class BrProcess extends EventEmitter {
       ps.on('data',(data)=>{
         this.parser.parse(data)
       })
-      // ps.on('data',(s) => {
-      // })
     })
   }
 
