@@ -352,8 +352,13 @@ class BrProcess extends EventEmitter {
         break;
       case 44:
         // line
-        this.lineNum = parseInt(s.substring(0,5))
-        this.clause = parseInt(s.substring(6))
+        if (s.trim()!==""){
+          this.lineNum = parseInt(s.substring(0,5))
+          this.clause = parseInt(s.substring(6))
+        } else {
+          this.lineNum = 0
+          this.clause = 0
+        }
         break;
       case 49:
         // line

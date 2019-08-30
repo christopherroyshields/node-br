@@ -41,10 +41,6 @@ app.get('/api/v1/decompile', function(req,res) {
 app.post('/api/v1/decompile', function(req, res) {
   req.files.object.mv(`${req.files.object.tempFilePath}.br`, function(err) {
     br.sendCmd(`list <:${req.files.object.tempFilePath}.br >:${req.files.object.tempFilePath}.brs\r`)
-      .catch((err)=>{
-        console.log("load failed");
-        res.status(400).send({ error: 'Could not Load!' })
-      })
       .then(()=>{
         // outputFile = `${req.files.object.tempFilePath}.brs`
         outputFile = `${req.files.object.tempFilePath}.brs`
@@ -71,6 +67,10 @@ app.post('/api/v1/decompile', function(req, res) {
           console.log(`${outputFile} was deleted`);
         });
 
+      })
+      .catch((err)=>{
+        console.log("load failed");
+        res.status(400).send(err)
       })
     })
 })
