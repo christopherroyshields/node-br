@@ -1,7 +1,11 @@
 ! library for testing
+dim x$*1
+
 def library fntest(&arg1$,&arg3,mat strarr$,mat numarr)
     let arg1$="return1"
     let arg3=54321
+
+    let x$="test" ! should produce error 4
 
     mat strarr$(3)
     let strarr$(1)="yy"

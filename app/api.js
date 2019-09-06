@@ -129,9 +129,7 @@ app.post('/api/v1/compile', (req, res) => {
     })
     .catch((err)=>{
       console.log("Error!");
-      res.status(400).send({
-        error: err.message
-      })
+      res.status(400).send(err)
     })
 })
 

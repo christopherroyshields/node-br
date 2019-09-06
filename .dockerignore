@@ -10,3 +10,4 @@ README.md
 ./br/testlib.br
 npm-debug.log
 docker-stack.yml
+test

@@ -46,6 +46,18 @@ XTERM_DECRST[25] = 'Hide Cursor (DECTCEM)'
 const XTERM_DECSET = []
 XTERM_DECSET[25] = 'Show Cursor (DECTCEM)'
 
+class BrError extends Error {
+  constructor({error,line,clause,message,command},...args){
+
+    super(`BR Error ${error} occured
+    on line ${line}, clause ${clause}
+    with message '${message}'
+    executing command '${command}'`,...args)
+
+    Error.captureStackTrace(this, BrError)
+  }
+}
+
 class BrProcess extends EventEmitter {
   constructor({
     log=0,
@@ -105,59 +117,69 @@ class BrProcess extends EventEmitter {
     this.ps.write(cmd)
   }
 
-  sendCmd(brCmd){
+  async sendCmd(brCmd){
     var cmdList = []
     if (typeof brCmd === "object"){
       cmdList = [...brCmd]
     } else if (typeof brCmd === "string") {
       if (brCmd.includes("\r")){
-        var cmdList = brCmd.split("\r")
+        cmdList = brCmd.split("\r")
       } else {
         cmdList.push(brCmd)
       }
     }
     var jobs = []
+    var results = []
     for (var i = 0; i < cmdList.length; i++) {
       cmdList[i].replace("\r","")
       cmdList[i].replace("\n","")
       if (cmdList[i].trim().length){
-        jobs.push(new Promise((resolve,reject)=>{
-          var cmd = cmdList[i]
-          console.log("job added:"+cmd)
-          this._write(cmdList[i]+"\r", (result)=>{
-            console.log("job finised:"+cmd)
-            if (this.state==="ERROR") {
-              reject(this._handleError(cmd))
-            } else {
-              resolve(result)
-            }
+        try {
+          results[i] = await new Promise((resolve,reject)=>{
+            var cmd = cmdList[i]
+            console.log("job added:"+cmd)
+            this._write(cmdList[i]+"\r", (result)=>{
+              console.log("job finised:"+cmd)
+              if (this.state==="ERROR") {
+                reject(this._handleError(cmd))
+              } else {
+                resolve(result)
+              }
+            })
           })
-        }))
+        } catch(err){
+          throw err
+        }
+
       }
     }
-    return new Promise((resolve,reject)=>{
-      Promise.all(jobs)
-        .catch((err)=>{
-          reject(err)
-        })
-        .then((result)=>{
-          resolve(result)
-        })
-    })
+
+    return results
+
+    // return new Promise((resolve,reject)=>{
+    //   Promise.all(jobs)
+    //     .catch((err)=>{
+    //       reject(err)
+    //     })
+    //     .then((result)=>{
+    //       resolve(result)
+    //     })
+    // })
   }
   _handleError(cmd){
     // converts BR error to Javascript Exception
     // May want to expand to have more br error info
-    var err = {
+    var err = new BrError({
       name: "BR Error",
       message: this.message,
       error: this.error,
       line: this.lineNum,
       clause: this.clause,
       command: cmd
-    }
-    console.error(err)
+    })
+    // console.error(err)
     // throw err
+
     return err
   }
   _parseLoadingText(s) {
@@ -540,6 +562,7 @@ class BrProcess extends EventEmitter {
 
       this.parser = new AnsiParser({
         inst_p: (s)=>{
+          console.log(s);
           if (this.row===this.brConfig.rows){
             this._parseStatusLine(s)
           } else {
@@ -587,7 +610,7 @@ class BrProcess extends EventEmitter {
           var cursorChange = this._handleCSI(collected, params, flag)
           // if (this.log) console.log(cursorChange)
           if (cursorChange==="DECTCEM"){
-            if (!this.ready){
+            if (!this.ready && this.splashed){
               if (this.log) console.log("READY")
               this.ready = true
               // this.emit("ready")

@@ -8,7 +8,7 @@ services:
     configs:
       - source: brserial
         target: /br/brserial.dat
-    command: ["node", "api.js"]
+    command: ["node", "--inspect=0.0.0.0", "api.js"]
 configs:
   brserial:
     file: ./br/brserial.dat
