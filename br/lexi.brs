@@ -383,9 +383,16 @@ READLINEUNDO: linput #InFile: String$ eof DONEREADINGUNDO
          let CurrentlyInCaseStatement=0
       end if
    end if
-   if trim$(string$(1:5))="" then let String$=String$(6:4000) : goto NOLINENUMBER
+   if trim$(string$(1:5))="" then
+      if string$(6:6)=" " then
+         let String$=String$(7:4000)
+      else
+         let String$=String$(6:4000)
+      end if
+      goto NOLINENUMBER
+   end if
    let X=Val(String$(1:5)) conv NOLINENUMBER
-   if (X>0) And String$(6:6)=" " then let String$=String$(6:4000)
+   if (X>0) And String$(6:6)=" " then let String$=String$(7:4000)
 NOLINENUMBER: ! A Line Has No Line Number At This Point
    print #OutFile: String$
    goto READLINEUNDO
