@@ -198,20 +198,20 @@ class Br extends BrProcess {
     // commands.push(`CLEAR ALL`)
 
     return new Promise((resolve, reject)=>{
-        var brFunctionOutput = ""
-        this.sendCmd(commands)
-          .then((runResult)=>{
-            brFunctionOutput = JSON.parse(runResult.pop().join(""))
-            return this.sendCmd(["CLEAR"])
-          })
-          .then(()=>{
-            resolve(brFunctionOutput)
-          })
-          .catch((err)=>{
-            debugger
-            console.log('Error running function:\r'+err)
-            reject(err)
-          })
+      var brFunctionOutput = ""
+      this.sendCmd(commands)
+        .then((runResult)=>{
+          brFunctionOutput = JSON.parse(runResult.pop().join(""))
+          return this.sendCmd(["CLEAR"])
+        })
+        .then(()=>{
+          resolve(brFunctionOutput)
+        })
+        .catch((err)=>{
+          debugger
+          console.log('Error running function:\r'+err)
+          reject(err)
+        })
     })
     // this.sendCmd(withLineNums).then((res)=>{
     //   console.log(res)

@@ -66,7 +66,7 @@ class BrError extends Error {
 
 class BrProcess extends EventEmitter {
   constructor({
-    log=0,
+    log=false,
     filename="log.txt",
     // console=true,
     bin="",
@@ -84,9 +84,8 @@ class BrProcess extends EventEmitter {
       cols: 80
     }
 
-    this.idle = false
+    this.log = log
     this.ready = false
-    this.jobs = []
     this.line = ""
     this.lines = []
     this.license = ""
@@ -116,11 +115,10 @@ class BrProcess extends EventEmitter {
   }
 
   _write(cmd, cb){
-    this.jobs.push({
-      cmd: cmd,
-      cb: cb
-    })
     this.ps.write(cmd)
+    this.once("done",(...args)=>{
+      cb(...args)
+    })
   }
 
   async sendCmd(brCmd){
@@ -134,7 +132,6 @@ class BrProcess extends EventEmitter {
         cmdList.push(brCmd)
       }
     }
-    var jobs = []
     var results = []
     for (var i = 0; i < cmdList.length; i++) {
       cmdList[i].replace("\r","")
@@ -143,19 +140,15 @@ class BrProcess extends EventEmitter {
         try {
           results[i] = await new Promise((resolve,reject)=>{
             var cmd = cmdList[i]
-            console.log("job added:"+cmd)
+            if (this.log) console.log("job added:"+cmd)
             this._write(cmdList[i]+"\r", (result)=>{
-              console.log("job finished:"+cmd)
+              if (this.log) console.log("job finished:"+cmd)
               if (this.state==="ERROR") {
                 this.state = ""
-                console.log("ERROR. Clearing line")
                 this._write("\n", (result)=>{
-                  console.log("Line Cleared: rejecting 1")
                   this._write("\n", (result)=>{
-                    console.log("Line Cleared: rejecting 2")
                     reject(this._handleError(cmd,result))
                   })
-                  reject(this._handleError(cmd,result))
                 })
               } else {
                 resolve(result)
@@ -169,16 +162,6 @@ class BrProcess extends EventEmitter {
       }
     }
     return results
-
-    // return new Promise((resolve,reject)=>{
-    //   Promise.all(jobs)
-    //     .catch((err)=>{
-    //       reject(err)
-    //     })
-    //     .then((result)=>{
-    //       resolve(result)
-    //     })
-    // })
   }
   _handleError(cmd, output){
     // converts BR error to Javascript Exception
@@ -192,8 +175,6 @@ class BrProcess extends EventEmitter {
       command: cmd,
       output: output
     })
-    // console.error(err)
-    // throw err
 
     return err
   }
@@ -459,11 +440,9 @@ class BrProcess extends EventEmitter {
                 if (this.ready){
                   this.lines.push(this.line.substring(1))
                   this.line = ""
-                  if (this.jobs.length){
-                    var job = this.jobs.shift()
-                    job.cb(this.lines)
-                    this.lines = []
-                  }
+                    // job.cb(this.lines)
+                  this.emit("done", this.lines)
+                  this.lines = []
                 }
                 return "DECTCEM"
                 break;
@@ -580,12 +559,7 @@ class BrProcess extends EventEmitter {
 
       this.parser = new AnsiParser({
         inst_p: (s)=>{
-          // if (s==="00002 let a = \"1\""){
-          //   debugger
-          // }
-
-          console.log(s);
-
+          if (this.log) console.log('print', s)
           if (this.row===this.brConfig.rows){
             this._parseStatusLine(s)
           } else {
@@ -604,7 +578,6 @@ class BrProcess extends EventEmitter {
               this._parseOutput(s)
             }
           }
-          if (this.log) console.log('print', s)
         },
         inst_o: (s)=>{
           if (this.log) console.log('osc', s)

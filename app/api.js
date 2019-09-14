@@ -13,7 +13,7 @@ app.use(fileUpload({
 }));
 
 br = new Br({
-  log: true,
+  log: false,
   libs: {
     "lexi":["fnApplyLexi"]
   }
@@ -138,25 +138,71 @@ app.post('/api/v1/compile', (req, res) => {
           let
             i,
             count = 0
-          fs.createReadStream(`${sourceFile}.part.brs`)
-            .on('data', function(chunk) {
-              for (i=0; i < chunk.length; ++i)
-                if (chunk[i] == 10) count++;
+
+          this.getCount = function(partial){
+            return new Promise((resolve)=>{
+              fs.createReadStream(partial)
+                .on('data', function(chunk) {
+                  for (i=0; i < chunk.length; ++i)
+                    if (chunk[i] == 10) count++;
+                })
+                .on('end', function() {
+                  br.sendCmd([
+                    `CLEAR ALL`
+                  ]).then(()=>{
+                    resolve(count)
+                  })
+                })
+                .on('error', (err)=>{
+                  setTimeout(()=>{
+                    this.getCount(partial)
+                      .then((count)=>{
+                        br.sendCmd([
+                          `CLEAR ALL`
+                        ]).then(()=>{
+                          resolve(count)
+                        })
+                      })
+                  },500)
+                })
             })
-            .on('end', function() {
-              br.sendCmd([
-                `CLEAR ALL`
-              ]).then(()=>{
-                var lastLine = count
-                // console.log(count);
-                res.status(400).send({message,line,clause,output,error,lastLine})
-              })
-            });
+          }
+
+          return this.getCount(`${sourceFile}.part.brs`)
+            .then((count)=>{
+              var lastLine = count
+              // console.log(count);
+              res.status(400).send({message,line,clause,output,error,lastLine})
+            })
+
+
         }).catch((err)=>{
           var {message,line,clause,output,error,command}=err
           // console.log("Error evaluating load error\n:" + err);
           var lastLine=0
           res.status(400).send({message,line,clause,output,error,lastLine})
+        }).finally(()=>{
+          fs.unlink(`${sourceFile}.part.brs`, (err) => {
+            if (err) {
+              console.log(`${sourceFile}.part.brs was NOT deleted`);
+            } else {
+              console.log(`${sourceFile}.part.brs was deleted`);
+            }
+          });
+          fs.unlink(`${sourceFile}`, (err) => {
+            if (err) {
+              console.log(`${sourceFile} was NOT deleted`);
+            } else {
+              console.log(`${sourceFile} was deleted`);
+            }
+          });
+          fs.unlink(`${sourceFile}.out.brs`, (err) => {
+            if (err) {
+              console.log(`${sourceFile}.out.brs was NOT deleted`);
+            } else {
+              console.log(`${sourceFile}.out.brs was deleted`);
+            }
+          });
         })
       }
     })
