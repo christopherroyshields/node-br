@@ -81,7 +81,7 @@ app.put('/api/v1/compile', (req, res) => {
 
 app.post('/api/v1/compile', (req, res) => {
   var sourceFile = req.files.source.tempFilePath
-  var outputFile = `${sourceFile}.out`
+  var outputFile = `${sourceFile}.out.brs`
   var objectFile = `${sourceFile}.br`
   console.log("Lexifying...");
   br.fn("ApplyLexi",":"+sourceFile,":"+outputFile)
@@ -94,17 +94,18 @@ app.post('/api/v1/compile', (req, res) => {
     .then(()=>{
       console.log("Saving to '.br'...");
       return br.sendCmd([
-        `SAVE :${objectFile}`
+        `SAVE :${objectFile}`,
+        `CLEAR ALL`
       ])
     })
     .then(()=>{
-      // fs.unlink(outputFile, (err) => {
-      //   if (err) {
-      //     console.log(`${outputFile} was NOT deleted`);
-      //   } else {
-      //     console.log(`${outputFile} was deleted`);
-      //   }
-      // });
+      fs.unlink(outputFile, (err) => {
+        if (err) {
+          console.log(`${outputFile} was NOT deleted`);
+        } else {
+          console.log(`${outputFile} was deleted`);
+        }
+      });
       console.log("Sending back");
       var stat = fs.statSync(objectFile);
       res.writeHead(200, {
@@ -118,18 +119,46 @@ app.post('/api/v1/compile', (req, res) => {
 
       res.on('finish', ()=>{
         console.log("finished sending")
-        // fs.unlink(objectFile, (err) => {
-        //   if (err) {
-        //     console.log(`${objectFile} was NOT deleted`);
-        //   } else {
-        //     console.log(`${objectFile} was deleted`);
-        //   }
-        // });
+        fs.unlink(objectFile, (err) => {
+          if (err) {
+            console.log(`${objectFile} was NOT deleted`);
+          } else {
+            console.log(`${objectFile} was deleted`);
+          }
+        });
       })
     })
     .catch((err)=>{
-      console.log("Error!");
-      res.status(400).send(err)
+      var {message,line,clause,output,error,command}=err
+      if (command===`LOAD :${outputFile},SOURCE`){
+        // console.log(`TEST:LIST >:./tmp/${path.basename(sourceFile)}.prt.brs`);
+        br.sendCmd([
+          `LIST >:./tmp/${path.basename(sourceFile)}.part.brs`
+        ]).then(()=>{
+          let
+            i,
+            count = 0
+          fs.createReadStream(`${sourceFile}.part.brs`)
+            .on('data', function(chunk) {
+              for (i=0; i < chunk.length; ++i)
+                if (chunk[i] == 10) count++;
+            })
+            .on('end', function() {
+              br.sendCmd([
+                `CLEAR ALL`
+              ]).then(()=>{
+                var lastLine = count
+                // console.log(count);
+                res.status(400).send({message,line,clause,output,error,lastLine})
+              })
+            });
+        }).catch((err)=>{
+          var {message,line,clause,output,error,command}=err
+          // console.log("Error evaluating load error\n:" + err);
+          var lastLine=0
+          res.status(400).send({message,line,clause,output,error,lastLine})
+        })
+      }
     })
 })
 

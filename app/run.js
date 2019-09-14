@@ -47,12 +47,18 @@ const XTERM_DECSET = []
 XTERM_DECSET[25] = 'Show Cursor (DECTCEM)'
 
 class BrError extends Error {
-  constructor({error,line,clause,message,command},...args){
+  constructor({error,line,clause,message,command,output},...args){
 
     super(`BR Error ${error} occured
     on line ${line}, clause ${clause}
     with message '${message}'
     executing command '${command}'`,...args)
+
+    this.error = error
+    this.line = line
+    this.clause = clause
+    this.command = command
+    this.output = output
 
     Error.captureStackTrace(this, BrError)
   }
@@ -133,15 +139,24 @@ class BrProcess extends EventEmitter {
     for (var i = 0; i < cmdList.length; i++) {
       cmdList[i].replace("\r","")
       cmdList[i].replace("\n","")
-      if (cmdList[i].trim().length){
+      if (cmdList[i].length){
         try {
           results[i] = await new Promise((resolve,reject)=>{
             var cmd = cmdList[i]
             console.log("job added:"+cmd)
             this._write(cmdList[i]+"\r", (result)=>{
-              console.log("job finised:"+cmd)
+              console.log("job finished:"+cmd)
               if (this.state==="ERROR") {
-                reject(this._handleError(cmd))
+                this.state = ""
+                console.log("ERROR. Clearing line")
+                this._write("\n", (result)=>{
+                  console.log("Line Cleared: rejecting 1")
+                  this._write("\n", (result)=>{
+                    console.log("Line Cleared: rejecting 2")
+                    reject(this._handleError(cmd,result))
+                  })
+                  reject(this._handleError(cmd,result))
+                })
               } else {
                 resolve(result)
               }
@@ -153,7 +168,6 @@ class BrProcess extends EventEmitter {
 
       }
     }
-
     return results
 
     // return new Promise((resolve,reject)=>{
@@ -166,7 +180,7 @@ class BrProcess extends EventEmitter {
     //     })
     // })
   }
-  _handleError(cmd){
+  _handleError(cmd, output){
     // converts BR error to Javascript Exception
     // May want to expand to have more br error info
     var err = new BrError({
@@ -175,7 +189,8 @@ class BrProcess extends EventEmitter {
       error: this.error,
       line: this.lineNum,
       clause: this.clause,
-      command: cmd
+      command: cmd,
+      output: output
     })
     // console.error(err)
     // throw err
@@ -435,11 +450,14 @@ class BrProcess extends EventEmitter {
                 this.shows+=1
                 if (this.log) console.log(`    Shows: ${this.shows}`)
 
+                // if (this.state === "ERROR"){
+                //   debugger
+                // }
                 this.lines.shift()
 
                 // finish job
                 if (this.ready){
-                  // this.lines.push(this.line.substring(1))
+                  this.lines.push(this.line.substring(1))
                   this.line = ""
                   if (this.jobs.length){
                     var job = this.jobs.shift()
@@ -562,7 +580,12 @@ class BrProcess extends EventEmitter {
 
       this.parser = new AnsiParser({
         inst_p: (s)=>{
+          // if (s==="00002 let a = \"1\""){
+          //   debugger
+          // }
+
           console.log(s);
+
           if (this.row===this.brConfig.rows){
             this._parseStatusLine(s)
           } else {

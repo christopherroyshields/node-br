@@ -193,18 +193,25 @@ class Br extends BrProcess {
         commands.push(`${(i+2).toString().padStart(5,0)} stop`)
       }
     }
+    // commands = ["\nCLEAR ALL", ...commands]
     commands.push(`RUN`)
-    commands.push(`CLEAR ALL`)
+    // commands.push(`CLEAR ALL`)
 
     return new Promise((resolve, reject)=>{
-      this.sendCmd(commands)
-        .then((runResult)=>{
-          var results = JSON.parse(runResult[runResult.length-2].join(""))
-          resolve(results)
-        })
-        .catch((err)=>{
-          reject(err)
-        })
+        var brFunctionOutput = ""
+        this.sendCmd(commands)
+          .then((runResult)=>{
+            brFunctionOutput = JSON.parse(runResult.pop().join(""))
+            return this.sendCmd(["CLEAR"])
+          })
+          .then(()=>{
+            resolve(brFunctionOutput)
+          })
+          .catch((err)=>{
+            debugger
+            console.log('Error running function:\r'+err)
+            reject(err)
+          })
     })
     // this.sendCmd(withLineNums).then((res)=>{
     //   console.log(res)
