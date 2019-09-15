@@ -23,7 +23,7 @@ dim multicomment$*5000,backstring$*5000
 
 dim BRProgram$(1)*2000
 
-def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,OutFile,Increment,LabelIncrement)
+def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFile$*255,___,InFile,OutFile,Increment,LabelIncrement,SourceMapFile,SourceMap,RealCount,LineCount)
    let fnSetLexiConstants
 
    let Increment=1
@@ -31,32 +31,42 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,O
    mat Constname$(0)
    mat Const$(0)
    str2mat('=|+|-|+=|-=|*|/|,|&|(| and| or',mat continuations$,'|')
+
    open #(InFile:=FngetfileNo): "name="&Infile$, display, input
    open #(OutFile:=fnGetFileNo): "name="&Outfile$&", recl=800, replace", display, output
+   if len(SourceMapFile$) then
+      open #(SourceMapFile:=fnGetFileNo): "name="&SourceMapFile$&", recl=800, replace", display, output error Ignore
+      let SourceMap=1
+   end if
+
    READLINE: linput #InFile: String$ eof DONEREADING
 
       do while (WrapPosition:=pos(String$,LineWrapCommand$))
          linput #InFile: String2$ eof Ignore
+         let Linecount+=Increment
+         let RealCount+=1
          if file(1)=0 then
             let String$=rtrm$(String$(1:WrapPosition-1))&" "&trim$(String2$)
          end if
       loop until file(1)
 
-      backstring$ = string$
-      multicomment$=''
-      continuationfound = 0
-      continuationposition = fncontinuationpos(string$,multicomment$,mat continuations$)
+      let backstring$ = string$
+      let multicomment$=''
+      let continuationfound = 0
+      let continuationposition = fncontinuationpos(string$,multicomment$,mat continuations$)
       do while continuationposition
          linput #InFile: String2$ eof DONEREADING
-         continuationposition = fncontinuationpos(string2$,multicomment$,mat continuations$)
-         String$=rtrm$(String$)&' '&trim$(String2$)
-         continuationfound = 1
+         let Linecount+=Increment
+         let RealCount+=1
+         let continuationposition = fncontinuationpos(string2$,multicomment$,mat continuations$)
+         let String$=rtrm$(String$)&' '&trim$(String2$)
+         let continuationfound = 1
       loop
  !
       if continuationfound then
          if multicomment$<>'' then String$(inf:inf)= '! '&multicomment$
       else
-         string$ = backstring$
+         let string$ = backstring$
       end if
 
       ! Check for a ` that is not inside "s .. so count from the beginning flagging if we're in "s
@@ -76,6 +86,7 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,O
          if pos("'",String$(CheckPosition:CheckPosition)) and ~InQuotesDouble then let InQuotesSingle=~InQuotesSingle
          if pos("!",String$(CheckPosition:CheckPosition)) and ~InQuotesDouble and ~InQuotesSingle then let InComment=1
          if String$(CheckPosition:CheckPosition)="`" and ~InQuotesSingle and ~InQuotesDouble and ~InComment then
+            ! pause
             ! Enable Special String Processing.
             ! Check from there to the end of the line.
             let String$(CheckPosition:CheckPosition)=""""
@@ -86,6 +97,8 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,O
                if SpecialPosition>len(String$) then
                   ! Read the next string and put it on here.
                   linput #InFile: String2$ eof Ignore
+                  let Linecount+=Increment
+                  let RealCount+=1
                   if file(1)=0 then
                      let String$=String$&"""&hex$(""0d0a"")&"""&trim$(String2$)
                      let SpecialPosition+=15
@@ -109,12 +122,12 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,O
                      if pos(String$(SpecialPosition:ReplacePosition),"$") then
                         let String$(ReplacePosition:ReplacePosition+1)="&"""
                         let String$(SpecialPosition:SpecialPosition+1)="""&"
-                        let SpecialPosition=ReplacePosition+2
+                        let SpecialPosition=ReplacePosition+1
                      else
                         ! if there's no $ inside, then add a str$() around it.
                         let String$(ReplacePosition:ReplacePosition+1)=")&"""
                         let String$(SpecialPosition:SpecialPosition+1)="""&str$("
-                        let SpecialPosition=ReplacePosition+8
+                        let SpecialPosition=ReplacePosition+7
                      end if
                   end if
                else if String$(SpecialPosition:SpecialPosition)="""" then
@@ -260,6 +273,10 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,O
          else
             let String$=Cnvrt$("PIC(#####)",(Linecount:=Linecount+Increment)) & " " & String$
          end if
+         let RealCount+=1
+         if SourceMap then
+            print #SourceMapFile: str$(LineCount)&","&str$(RealCount)
+         end if
       else
          let String$="      "&String$
          let Skipnextone=0
@@ -272,6 +289,7 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,___,InFile,O
 DONEREADING: !
    close #OutFile:
    close #InFile:
+   if SourceMap then close #SourceMapFile:
 fnend
 !
 def fncontinuationpos( &strng$, &multicomment$, mat continuations$;___,exclsrchstart,continuationpos,singlequotecount,doublequotecount,exclpos,colonpos,i,tempstr$*5000,tempcomm$*5000)
