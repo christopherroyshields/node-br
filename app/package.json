@@ -4,7 +4,7 @@
   "description": "",
   "main": "br.js",
   "scripts": {
-    "test": "node test.js",
+    "test": "mocha --inspect-brk=0.0.0.0",
     "start": "node api.js"
   },
   "author": "",
@@ -16,5 +16,9 @@
     "node-ansiparser": "^2.2.0",
     "node-pty": "^0.8.1",
     "p-queue": "^6.0.2"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^6.2.2"
   }
 }
