@@ -1,32 +1,31 @@
 const {expect} = require('chai');
 const BrProcess = require('./run.js')
 
-var hrstart = process.hrtime()
+describe('BrProcess', function() {
 
-describe('Br Process:', function() {
   const br = new BrProcess()
 
-  describe('Start', function() {
-    it('Should start a BR process', async function() {
-      await br.start()
-      expect(br.wsid).to.equal(1);
-    });
+  before(async function() {
+    await br.start()
   })
 
-  describe('Cmd', function() {
-    it('Should execute command and return result', async function() {
-      var result = await br.cmd("len('john')")
-      expect(result[1]).to.equal(' 4');
+  describe('Startup', function(){
+    it("should have assigned a workstation id", async function(){
+      expect(br.wsid).to.equal(1);
     })
+  })
 
-    it('Should enter lines then run', async function(){
-      // can't seem to enter plus symbol here!
+  describe('Proc', function(){
+    it("should run the procedure and return the result", async function(){
       var result = await br.proc([
         'let a = 5*5',
-        'let b = 10',
-        'print a*b'
+        'print a+10'
       ])
-      console.log(result);
+
+      console.log(br)
+      console.log(result)
+
+      expect(result.length).to.equal(5);
     })
   })
 

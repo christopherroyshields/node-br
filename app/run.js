@@ -146,9 +146,8 @@ class BrProcess extends EventEmitter {
       await this._write(`${i+10} ${lines[i]}\r`)
     }
     var prog = await this._write("list\r")
-    console.log(prog)
     var output = await this._write("run\r")
-    return output
+    return [...prog, ...output]
   }
 
   _write(cmd){
