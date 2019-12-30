@@ -103,19 +103,15 @@ class BrProcess extends EventEmitter {
       inst_x: this._onSingleCharacterExecute.bind(this),
       inst_c: this._onCursorChange.bind(this),
       inst_e: (collected, flag)=>{
-        // this.emit("escape", collected, flag)
         if (this.log) console.log('esc', collected, flag)
       },
       inst_H: (collected, params, flag)=>{
-        // this.emit('dcs-Hook', collected, params, flag)
         if (this.log) console.log('dcs-Hook', collected, params, flag)
       },
       inst_P: (dcs)=>{
-        // this.emit('dcs-Put', dcs)
         if (this.log) console.log('dcs-Put', dcs)
       },
       inst_U: ()=>{
-        // this.emit('dcs-Unhook')
         if (this.log) console.log('dcs-Unhook')
       }
     })
@@ -123,7 +119,7 @@ class BrProcess extends EventEmitter {
 
   async start(){
     try {
-      await this.spawnBr()
+      await this._spawnBr()
       this.started = true
       if (this.log) console.log("started")
       this.emit("ready")
@@ -167,6 +163,31 @@ class BrProcess extends EventEmitter {
       this.ps.write(cmd)
       this.once("done", (data)=>{
         resolve(data)
+      })
+    })
+  }
+
+  async _spawnBr(){
+    await new Promise((resolve, reject)=>{
+      // create psuedoterminal
+      this.ps = pty.spawn("./brlinux", [], {
+        name: 'linux',
+        cols: this.brConfig.cols,
+        rows: this.brConfig.rows,
+        cwd: '../br',
+        env: {
+          TERM: "xterm"
+        }
+      })
+
+      var license = ""
+
+      this.once("started", ()=>{
+        resolve()
+      })
+
+      this.ps.on('data',(data)=>{
+        this.parser.parse(data)
       })
     })
   }
@@ -597,31 +618,6 @@ class BrProcess extends EventEmitter {
       default:
         if (this.log) console.log(`unhandled collection: ${collected}`)
     }
-  }
-
-  spawnBr(){
-    return new Promise((resolve, reject)=>{
-      // create psuedoterminal
-      this.ps = pty.spawn("./brlinux", [], {
-        name: 'linux',
-        cols: this.brConfig.cols,
-        rows: this.brConfig.rows,
-        cwd: '../br',
-        env: {
-          TERM: "xterm"
-        }
-      })
-
-      var license = ""
-
-      this.once("started", ()=>{
-        resolve()
-      })
-
-      this.ps.on('data',(data)=>{
-        this.parser.parse(data)
-      })
-    })
   }
 
 }
