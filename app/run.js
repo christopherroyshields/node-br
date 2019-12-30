@@ -5,6 +5,7 @@ const fs = require('fs')
 const os = require('os')
 const AnsiParser = require('node-ansiparser');
 const chalk = require('chalk');
+const tmp = require('tmp-promise');
 
 const PROMT_TO_END = /Press any key to exit./
 const PROMPT_FOR_KEYPRESS = /Press any key to continue ..../
@@ -47,12 +48,12 @@ const XTERM_DECSET = []
 XTERM_DECSET[25] = 'Show Cursor (DECTCEM)'
 
 class BrError extends Error {
-  constructor({error,line,clause,message,command,output},...args){
+  constructor({error,line,clause,message,command,output}){
 
     super(`BR Error ${error} occured
     on line ${line}, clause ${clause}
     with message '${message}'
-    executing command '${command}'`,...args)
+    executing command '${command}'`)
 
     this.error = error
     this.line = line
@@ -131,27 +132,38 @@ class BrProcess extends EventEmitter {
     }
   }
 
-  async cmd(cmd){
-    var output = await this._write(`${cmd}\r`)
-    if (this.state==="ERROR"){
-      throw this._handleError(cmd,output)
-    } else {
-      return output
+  async stop(){
+    try {
+      await this.proc([
+        'clear',
+        'system'
+      ])
+    } catch(err){
+      console.error(err);
     }
   }
 
   // enter lines of code and run then return results
   async proc(lines){
+    var output = []
     for (var i = 0; i < lines.length; i++) {
-      await this._write(`${i+10} ${lines[i]}\r`)
+      output.push(await this.cmd(`${lines[i]}`))
     }
-    var prog = await this._write("list\r")
-    var output = await this._write("run\r")
-    return [...prog, ...output]
+    return output
+  }
+
+  async cmd(cmd){
+    var output = await this._write(`${cmd}\r`)
+    if (this.state==="ERROR"){
+      await this._write("\n")
+      throw this._handleError(cmd, output)
+    } else {
+      return output
+    }
   }
 
   _write(cmd){
-    return new Promise((resolve)=>{
+    return new Promise((resolve, reject)=>{
       this.ps.write(cmd)
       this.once("done", (data)=>{
         resolve(data)
@@ -161,7 +173,7 @@ class BrProcess extends EventEmitter {
 
   _onPrint(text){
 
-    if (this.log) console.log('print', text)
+    if (this.log) console.log('print', `*${text}*`)
 
     if (this.row===this.brConfig.rows){
       this._parseStatusLine(text)
@@ -204,14 +216,15 @@ class BrProcess extends EventEmitter {
   _onSingleCharacterExecute(flag) {
     // Single character method
     if (this.started){
-      switch (flag) {
+      switch (flag.charCodeAt(0)) {
         case 10:
           if (this.log) console.log("Line Feed")
-          this.lines.push("\n")
+          this.lines.push(this.line)
+          this.line=""
           break;
         case 13:
           if (this.log) console.log("Carriage Return")
-          this.lines.push("\r")
+          // this.lines.push("\r")
           break;
         case 15:
           if (this.log) console.log("Shift In.")
@@ -474,6 +487,7 @@ class BrProcess extends EventEmitter {
             switch (params[0]) {
               case 25:
                 if (this.log) console.log(`    Hide Cursor (DECTCEM)`)
+                this.last_command = this.line
                 return "DECTCEM"
                 break;
               default:
@@ -495,7 +509,7 @@ class BrProcess extends EventEmitter {
                 // if (this.state === "ERROR"){
                 //   debugger
                 // }
-                this.lines.shift()
+                // this.lines.shift()
 
                 // finish job
                 if (this.started){
@@ -589,7 +603,7 @@ class BrProcess extends EventEmitter {
     return new Promise((resolve, reject)=>{
       // create psuedoterminal
       this.ps = pty.spawn("./brlinux", [], {
-        name: 'xterm',
+        name: 'linux',
         cols: this.brConfig.cols,
         rows: this.brConfig.rows,
         cwd: '../br',

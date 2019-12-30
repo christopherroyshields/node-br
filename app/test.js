@@ -1,4 +1,4 @@
-const {expect} = require('chai');
+const {expect, done} = require('chai');
 const BrProcess = require('./run.js')
 
 describe('BrProcess', function() {
@@ -9,24 +9,51 @@ describe('BrProcess', function() {
     await br.start()
   })
 
+  after(async function() {
+    await br.stop()
+  })
+
   describe('Startup', function(){
-    it("should have assigned a workstation id", async function(){
+    it("should have assigned a workstation id", function(done){
       expect(br.wsid).to.equal(1);
+      done()
     })
   })
 
-  describe('Proc', function(){
-    it("should run the procedure and return the result", async function(){
-      var result = await br.proc([
-        'let a = 5*5',
-        'print a+10'
-      ])
+  describe('Commands', function(){
+    it("Should run command and return any output", async function(){
 
-      console.log(br)
-      console.log(result)
+      var output = ""
+      output = await br.cmd("10 let a = 10")
+      expect(output.length).to.equal(2);
 
-      expect(result.length).to.equal(5);
+      output = await br.cmd("20 let b = 20")
+      expect(output.length).to.equal(2);
+
+      output = await br.cmd("30 let c = a*b")
+      expect(output.length).to.equal(2);
+
+      output = await br.cmd("40 let d = a*b*c")
+      expect(output.length).to.equal(2);
+
+      output = await br.cmd("50 print a,b,c,d")
+      expect(output.length).to.equal(2);
+
+      output = await br.cmd("run")
+      expect(output.length).to.equal(4);
+
     })
+
+    it("Proc method should run array of commands and return results for each", async function(){
+      var output = ""
+      output = await br.proc([
+        '60 let x = d-50',
+        '70 print x',
+        'run'
+      ])
+      expect(output.length).to.equal(3);
+    })
+
   })
 
 });
