@@ -1,5 +1,72 @@
-const {expect, done} = require('chai');
+const {expect} = require('chai')
 const BrProcess = require('./run.js')
+const Br = require('./br.js');
+
+describe("Br class for high level abstraction", function() {
+  var tmp = {};
+  before(async function(){
+    tmp = await Br.spawn()
+  })
+
+  after(async function(){
+    await tmp.stop()
+  })
+
+  describe("Process Factory", function() {
+    it("Should spawn a br process", async function(){
+      expect(tmp.wsid>0).to.equal(true)
+    })
+  })
+
+  describe("Library Function", function() {
+    it("Should call a library function", async function(){
+      // create Library
+      await tmp.proc([
+        "10 def library fntest(&a,&b)",
+        "20   let a = 10",
+        "30   let b = 20",
+        "40   let fntest = 30",
+        "50 fnend",
+        "list >testlib.brs",
+        "replace testlib",
+        "clear"
+      ])
+
+      tmp.libs = {
+        "testlib":["fntest"]
+      }
+
+      var output = await tmp.fn("test", 1, 2)
+      console.log(output);
+      expect(output.results[0]).to.equal(10)
+      expect(output.results[1]).to.equal(20)
+      expect(output.return).to.equal(30)
+
+      await tmp.proc([
+        "10 def library fntest$(&a$,&b$)",
+        "20   let a$ = a$&'test1'",
+        "30   let b$ = b$&'test2'",
+        "40   let fntest$ = 'test return'",
+        "50 fnend",
+        "list >testlib.brs",
+        "replace testlib",
+        "clear"
+      ])
+
+      tmp.libs = {
+        "testlib":["fntest$"]
+      }
+
+      var output = await tmp.fn("test$", "in1", "in2")
+      console.log(output);
+      expect(output.results[0]).to.equal("in1test1")
+      expect(output.results[1]).to.equal("in2test2")
+      expect(output.return).to.equal('test return')
+
+    })
+  })
+
+})
 
 describe('BrProcess', function() {
 
@@ -15,7 +82,7 @@ describe('BrProcess', function() {
 
   describe('Startup', function(){
     it("should have assigned a workstation id", function(done){
-      expect(br.wsid).to.equal(1);
+      expect(br.wsid>0).to.equal(true);
       done()
     })
   })

@@ -4,12 +4,13 @@ const fs = require('fs');
 const fsPromises = fs.promises;
 
 class Br extends BrProcess {
-  constructor(config){
-    super({
-      log:config.log
-    })
-    this.libs = config.libs || []
-    this.on("ready",this._onReady)
+  static async spawn(log=false, libs=[]){
+    var br = new Br(log)
+    await br.start()
+    return br
+  }
+  constructor(log){
+    super(log)
   }
   _onReady(){
     for (var i = 0; i < this.libs.length; i++) {
@@ -99,7 +100,8 @@ class Br extends BrProcess {
     // }
   }
   // registers
-  fn(fn,...args){
+  async fn(fn,...args){
+
     var dims = []
     var argList = []
     var setList = []
@@ -161,8 +163,17 @@ class Br extends BrProcess {
         getList.push(`print ","`)
       }
     }
-    getList.push(`print "]"`)
+    getList.push(`print "],"`)
+
+    if (fn.includes('$')){
+      dims.push(`result$*2048`)
+      getList.push(`print '"return":"'&result$&'"'`)
+    } else {
+      getList.push(`print '"return":'&str$(result)`)
+    }
+
     getList.push(`print "}"`)
+
 
     var codeLines = []
     do {
@@ -177,7 +188,7 @@ class Br extends BrProcess {
       codeLines.push(`LET ${setList.shift()}`)
     } while (setList.length)
 
-    codeLines.push(`LET fn${fn}(${argList.join(",")})`)
+    codeLines.push(`LET result${fn.includes('$') ? "$" : ""}=fn${fn}(${argList.join(",")})`)
 
     do {
       codeLines.push(`${getList.shift()}`)
@@ -193,40 +204,21 @@ class Br extends BrProcess {
         commands.push(`${(i+2).toString().padStart(5,0)} stop`)
       }
     }
-    // commands = ["\nCLEAR ALL", ...commands]
-    commands.push(`RUN`)
-    // commands.push(`CLEAR ALL`)
 
-    return new Promise((resolve, reject)=>{
-      var brFunctionOutput = ""
-      this.sendCmd(commands)
-        .then((runResult)=>{
-          brFunctionOutput = JSON.parse(runResult.pop().join(""))
-          return this.sendCmd(["CLEAR"])
-        })
-        .then(()=>{
-          resolve(brFunctionOutput)
-        })
-        .catch((err)=>{
-          debugger
-          console.log('Error running function:\r'+err)
-          reject(err)
-        })
-    })
-    // this.sendCmd(withLineNums).then((res)=>{
-    //   console.log(res)
-    // });
+    var output = ""
+    var json = {}
+    console.log(commands);
+    await this.proc(commands)
+    try {
+      output = await this.cmd("run")
+      json = JSON.parse(output.splice(1).join(''))
+    } catch(err){
+      console.error(err);
+    } finally {
+      await this.cmd("clear")
+    }
 
-    // this.sendCmd("SAVE TEST\r\n");
-    // console.log(dims);
-    // console.log(`args:`);
-    // console.log(argList);
-    // console.log(`call:`);
-    // console.log(call);
-    // console.log(`code:`);
-    // console.log(codeLines);
-    // console.log(`get:`);
-    // console.log(getList);
+    return json
 
   }
   async set(name,val,idx){
