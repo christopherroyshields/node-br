@@ -1,4 +1,5 @@
 #!/bin/sh
+docker build -t br:node-br .
 docker run -it \
   --init \
   -v "$PWD/brserial.dat:/br/brserial.dat" \

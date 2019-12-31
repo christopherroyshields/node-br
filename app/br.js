@@ -207,7 +207,6 @@ class Br extends BrProcess {
 
     var output = ""
     var json = {}
-    console.log(commands);
     await this.proc(commands)
     try {
       output = await this.cmd("run")

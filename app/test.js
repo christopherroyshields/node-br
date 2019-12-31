@@ -27,8 +27,7 @@ describe("Br class for high level abstraction", function() {
         "30   let b = 20",
         "40   let fntest = 30",
         "50 fnend",
-        "list >testlib.brs",
-        "replace testlib",
+        "save testlib",
         "clear"
       ])
 
@@ -37,7 +36,7 @@ describe("Br class for high level abstraction", function() {
       }
 
       var output = await tmp.fn("test", 1, 2)
-      console.log(output);
+      await tmp.cmd("free testlib.br")
       expect(output.results[0]).to.equal(10)
       expect(output.results[1]).to.equal(20)
       expect(output.return).to.equal(30)
@@ -48,8 +47,7 @@ describe("Br class for high level abstraction", function() {
         "30   let b$ = b$&'test2'",
         "40   let fntest$ = 'test return'",
         "50 fnend",
-        "list >testlib.brs",
-        "replace testlib",
+        "save testlib",
         "clear"
       ])
 
@@ -58,11 +56,27 @@ describe("Br class for high level abstraction", function() {
       }
 
       var output = await tmp.fn("test$", "in1", "in2")
-      console.log(output);
+      await tmp.cmd("free testlib.br")
       expect(output.results[0]).to.equal("in1test1")
       expect(output.results[1]).to.equal("in2test2")
       expect(output.return).to.equal('test return')
 
+    })
+  })
+
+  describe("Handle errors", function(){
+    it("Should catch custom error on line 20 error number 4", async function(){
+      await tmp.proc([
+        "10 dim a$*1",
+        "20 let a$ = 'xx'",
+      ])
+
+      try {
+        var output = await tmp.cmd("run")
+      } catch(err){
+        expect(err.line).to.equal(20)
+        expect(err.error).to.equal(4)
+      }
     })
   })
 
@@ -124,120 +138,3 @@ describe('BrProcess', function() {
   })
 
 });
-
-// br.on("ready",(license)=>{
-//   console.log("license returned:" +license)
-//
-//   console.log(`copy:${br.copyright}`)
-//   console.log(`config:${br.config_messages}`)
-//   console.log(`license_text:${br.license.license_text}`)
-//   console.log(`licensee:${br.license.licensee}`)
-//   console.log(`licensee address:${br.license.licensee_address}`)
-//   console.log(`serial:${br.serial}`)
-//
-//   console.log(`concurrency:${br.concurrency}`)
-//   console.log(`stations:${br.stations}`)
-//   console.log(`wsid:${br.wsid}`)
-//
-//   var arrArg = ["arr1",80085]
-  // br.lib("testlib",["test"])
-  // br.compile("/br/testlib.brs")
-  //   .then((success)=>{
-  //     console.log(`program compiled:${success.toString()}`)
-  //   })
-
-
-  // br.fn("test","testarg",1.1234,arrArg)
-  //   .then((results)=>{
-  //     console.log(results)
-  //   })
-
-  // start time
-  // hrend = process.hrtime(hrstart)
-  // console.info('Execution time (hr): %ds %dms', hrend[0], hrend[1] / 1000000)
-  //
-  // hrstart = process.hrtime()
-  // br.set(`a`,"test").then((data)=>{
-  //   console.log(`command output: ${data}`)
-  //   console.log(`length: ${data.length}`)
-  //   console.log(`status: ${br.state}`)
-  //   console.log(`error: ${br.error}`)
-  //   console.log(`line: ${br.lineNum}`)
-  //   console.log(`clause: ${br.clause}`)
-  //   hrend = process.hrtime(hrstart)
-  //   console.info('Execution time (hr): %ds %dms', hrend[0], hrend[1] / 1000000)
-  // })
-  //
-  // br.set(`testnum`,7.4356).then((data)=>{
-  //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${br.state}`)
-  // })
-  // //
-  // // br.set(`a`,"test").then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // // br.set(`a`,"test").then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // // br.set(`a`,"test").then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // // br.set(`a`,"test").then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // // br.set(`a`,"test").then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // br.set(`num`,10).then((data)=>{
-  //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${br.state}`)
-  // })
-  // //
-  // br.getVal(`num`,'number').then((data)=>{
-  //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${br.state}`)
-  // })
-  // //
-  // // br.getVal(`a`,'string').then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // br.getVal(`a`,'string').then((data)=>{
-  //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${br.state}`)
-  // })
-  // //
-  // //
-  // //
-  // // br.set(`b`,[5,4,3,2]).then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // // br.getVal(`b`,'number',3).then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // //
-  // // // console.log(br.getVal(`b`,'number'))
-  // // br.getVal(`c`,'numberarray').then((data)=>{
-  // //   console.log(`command output: ${data}`)
-  // //   console.log(`status: ${br.state}`)
-  // // })
-  // br.getVal(`a`,'string').then((data)=>{
-  //   console.log(`command output: ${data}`)
-  //   console.log(`status: ${br.state}`)
-  // })
-
-// })
