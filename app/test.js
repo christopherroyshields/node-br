@@ -18,50 +18,87 @@ describe("Br class for high level abstraction", function() {
     })
   })
 
+  describe("Compile", function(){
+    it("Should create a br program from source", async function(){
+
+      var { err, path } = await tmp.compile([
+        `10 let a = 1`
+      ])
+
+      var list = await tmp.cmd(`list <:${path}`)
+
+      expect(err).to.equal(null)
+      expect(path.length>0).to.equal(true)
+      expect(list[1]).to.equal(" 00010 LET A = 1 ")
+
+    })
+  })
+
   describe("Library Function", function() {
     it("Should call a library function", async function(){
       // create Library
-      await tmp.proc([
+      var lib = {}
+      lib = await tmp.compile([
         "10 def library fntest(&a,&b)",
         "20   let a = 10",
         "30   let b = 20",
         "40   let fntest = 30",
-        "50 fnend",
-        "save testlib",
-        "clear"
+        "50 fnend"
       ])
 
-      tmp.libs = {
-        "testlib":["fntest"]
-      }
+      tmp.libs = [{
+        path: `:${lib.path}`,
+        fn: ["fntest"]
+      }]
 
       var output = await tmp.fn("test", 1, 2)
-      await tmp.cmd("free testlib.br")
+      await tmp.cmd(`free :${lib.path}`)
       expect(output.results[0]).to.equal(10)
       expect(output.results[1]).to.equal(20)
       expect(output.return).to.equal(30)
 
-      await tmp.proc([
+      lib = await tmp.compile([
         "10 def library fntest$(&a$,&b$)",
         "20   let a$ = a$&'test1'",
         "30   let b$ = b$&'test2'",
         "40   let fntest$ = 'test return'",
-        "50 fnend",
-        "save testlib",
-        "clear"
+        "50 fnend"
       ])
 
-      tmp.libs = {
-        "testlib":["fntest$"]
-      }
+      tmp.libs = [{
+        path: `:${lib.path}`,
+        fn: ["fntest$"]
+      }]
 
       var output = await tmp.fn("test$", "in1", "in2")
-      await tmp.cmd("free testlib.br")
+      await tmp.cmd(`free :${lib.path}`)
       expect(output.results[0]).to.equal("in1test1")
       expect(output.results[1]).to.equal("in2test2")
       expect(output.return).to.equal('test return')
 
     })
+
+    // describe("Load", function(){
+    //   it("should load a br program into memory", async function(){
+    //     var result = await tmp.load()
+    //   })
+    // })
+
+    // describe("Compile", function(){
+    //   it("should create a compiled br binary from source code text", async function(){
+    //     var source = `
+    //       let a = 1
+    //       let b = 2
+    //       print a + b
+    //       `
+    //     var bin = await tmp.compile(source)
+    //     console.log(bin);
+    //     var loadResult = await tmp.proc([
+    //       `load ${bin}`,
+    //       `list`
+    //     ])
+    //   })
+    // })
   })
 
   describe("Handle errors", function(){

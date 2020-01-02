@@ -1,16 +1,15 @@
 const BrProcess = require('./run.js')
 const path = require('path')
 const fs = require('fs');
+const os = require('os');
 const fsPromises = fs.promises;
+const { file } = require('tmp-promise');
 
 class Br extends BrProcess {
   static async spawn(log=false, libs=[]){
     var br = new Br(log)
     await br.start()
     return br
-  }
-  constructor(log){
-    super(log)
   }
   _onReady(){
     for (var i = 0; i < this.libs.length; i++) {
@@ -27,37 +26,34 @@ class Br extends BrProcess {
       return false
     }
   }
-  compile(sourceFilename){
-    var saveName = this.getCompiledName(sourceFilename)
-    var saveCmd = 'REPLACE'
-    return new Promise((resolve,reject)=>{
-      fsPromises.access(sourceFilename, fs.constants.R_OK)
-        .catch(()=>console.log(`Can't read file.`))
-        .then(() => {
-          return fsPromises.access(`${path.dirname(sourceFilename)}/${saveName}`,fs.constants.W_OK)
-        })
-        .catch((err)=>{
-          if (err.code==="ENOENT"){
-            saveCmd = 'SAVE'
-          } else {
-            throw err
-          }
-        })
-        .then(() => {
-          return fsPromises.readFile(sourceFilename)
-        })
-        .then((contents)=>{
-          var lines = this.addLineNumbers(contents.toString())
-          for (var i = 0; i < lines.length; i++) {
-            this.sendCmd(`${lines[i]}\r`)
-          }
-          return this.sendCmd(`${saveCmd} :${saveName}\r`)
-        })
-        .then((result)=>{
-          resolve(saveName)
-        })
-    })
+
+  async compile(sourceCode){
+    var lines = []
+    var result = {
+        err: null,
+        path: null
+    }
+
+    if (typeof sourceCode === "object") {
+      sourceCode = sourceCode.join(os.EOL)
+    }
+
+    const {fd, path, cleanup} = await file();
+    await fsPromises.writeFile(path, sourceCode)
+
+    try {
+      await this.cmd(`load :${path},source`)
+      await this.cmd(`save :${path}.br`)
+      result.path = `${path}.br`
+    } catch(err) {
+      result.err = err
+    } finally {
+      await this.cmd('clear')
+    }
+
+    return result
   }
+
   getCompiledName(sourceFilename){
     var compiledName = ''
     switch (path.extname(sourceFilename)) {
@@ -82,24 +78,6 @@ class Br extends BrProcess {
     }
     return lines
   }
-  run(prog){
-    switch (path.extname(prog)) {
-      case '.br':
-      case '.wb':
-        this.sendCmd(`RUN ${prog}`)
-        break;
-      case '.brs':
-      case '.wbs':
-        break;
-      default:
-
-    }
-    // check if source or compiled
-    // if (this.isSource(prog)){
-    //   this.compile()
-    // }
-  }
-  // registers
   async fn(fn,...args){
 
     var dims = []
@@ -180,8 +158,8 @@ class Br extends BrProcess {
       codeLines.push(`DIM ${dims.splice(0,6).join(",")}`)
     } while (dims.length)
 
-    for (var lib in this.libs) {
-      codeLines.push(`LIBRARY "${this.getCompiledName(lib)}": ${this.libs[lib].join(",")}`)
+    for (const lib of this.libs) {
+      codeLines.push(`LIBRARY "${lib.path}": ${lib.fn.join(",")}`)
     }
 
     do {
