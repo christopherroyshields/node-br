@@ -150,9 +150,11 @@ class BrProcess extends EventEmitter {
 
   async cmd(cmd){
     var output = await this._write(`${cmd}\r`)
-    if (this.state==="ERROR"){
+    if (this.error){
+      var err = this._handleError(cmd, output)
       await this._write("\n")
-      throw this._handleError(cmd, output)
+      this.error = 0
+      throw err
     } else {
       return output
     }
@@ -176,7 +178,7 @@ class BrProcess extends EventEmitter {
         rows: this.brConfig.rows,
         cwd: '../br',
         env: {
-          TERM: "xterm"
+          TERM: "linux"
         }
       })
 

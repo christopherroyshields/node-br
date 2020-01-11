@@ -3,23 +3,52 @@ const BrProcess = require('./run.js')
 const Br = require('./br.js');
 
 describe("Br class for high level abstraction", function() {
-  var tmp = {};
+  var tmp = {}
+  var tmp2 = {}
   before(async function(){
     tmp = await Br.spawn()
+    tmp2 = await Br.spawn()
   })
 
   after(async function(){
     await tmp.stop()
+    await tmp2.stop()
   })
 
   describe("Process Factory", function() {
     it("Should spawn a br process", async function(){
       expect(tmp.wsid>0).to.equal(true)
+      expect(tmp2.wsid>0).to.equal(true)
     })
   })
 
   describe("Compile", function(){
     it("Should create a br program from source", async function(){
+
+      var { err, path } = await tmp.compile([
+        `10 let a = 1`,
+        `20 let b = "a"`
+      ])
+
+      expect(err.error).to.equal(1026)
+      expect(err.sourceLine).to.equal(2)
+
+      var { err, path } = await tmp2.compile([
+        `10 let a = 1`,
+        `20 let b = "a"`
+      ])
+
+      expect(err.error).to.equal(1026)
+      expect(err.sourceLine).to.equal(2)
+
+      var { err, path } = await tmp.compile([
+        `10 let a = 1`,
+        `20 let b = fntest`
+      ])
+
+      expect(err.error).to.equal(302)
+      // expect(err.output[0]).to.equal(` save :${path}`)
+      expect(err.output[1]).to.equal(" FNTEST")
 
       var { err, path } = await tmp.compile([
         `10 let a = 1`
@@ -30,6 +59,7 @@ describe("Br class for high level abstraction", function() {
       expect(err).to.equal(null)
       expect(path.length>0).to.equal(true)
       expect(list[1]).to.equal(" 00010 LET A = 1 ")
+
 
     })
   })

@@ -27,28 +27,36 @@ class Br extends BrProcess {
     }
   }
 
-  async compile(sourceCode){
-    var lines = []
+  async compile(lines){
     var result = {
         err: null,
         path: null
     }
 
-    if (typeof sourceCode === "object") {
-      sourceCode = sourceCode.join(os.EOL)
-    }
-
     const {fd, path, cleanup} = await file();
-    await fsPromises.writeFile(path, sourceCode)
+    fs.writeFileSync(path, lines.join(os.EOL))
 
     try {
       await this.cmd(`load :${path},source`)
-      await this.cmd(`save :${path}.br`)
-      result.path = `${path}.br`
+      try {
+        await this.cmd(`save :${path}.br`)
+      } catch(err){
+        result.err = err
+      } finally {
+        result.path = `${path}.br`
+      }
     } catch(err) {
       result.err = err
+      try {
+        await this.cmd(`list >:${path}.part`)
+        result.err.sourceLine = fs.readFileSync(`${path}.part`).toString().split(os.EOL).length
+        await this.cmd(`free :${path}.part`)
+      } catch(e) {
+        result.err.sourceLine = 1
+      }
     } finally {
       await this.cmd('clear')
+      cleanup()
     }
 
     return result
@@ -185,7 +193,9 @@ class Br extends BrProcess {
 
     var output = ""
     var json = {}
+
     await this.proc(commands)
+
     try {
       output = await this.cmd("run")
       json = JSON.parse(output.splice(1).join(''))
