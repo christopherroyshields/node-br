@@ -6,17 +6,17 @@
   "scripts": {
     "test": "mocha",
     "test-debug": "mocha --inspect-brk=0.0.0.0 --timeout 5000",
+    "start-debug": "node --inspect-brk=0.0.0.0 api.js",
     "start": "node api.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.19.0",
     "chalk": "^2.4.2",
     "express": "^4.17.1",
-    "express-fileupload": "^1.1.5",
     "node-ansiparser": "^2.2.0",
     "node-pty": "^0.8.1",
-    "p-queue": "^6.0.2",
     "tmp-promise": "^2.0.2"
   },
   "devDependencies": {

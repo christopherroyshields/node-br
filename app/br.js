@@ -2,44 +2,63 @@ const BrProcess = require('./run.js')
 const path = require('path')
 const fs = require('fs');
 const os = require('os');
-const fsPromises = fs.promises;
-const { file } = require('tmp-promise');
+const { tmpNameSync } = require('tmp-promise');
 
 class Br extends BrProcess {
+
   static async spawn(log=false, libs=[]){
     var br = new Br(log)
     await br.start()
     return br
   }
-  _onReady(){
-    for (var i = 0; i < this.libs.length; i++) {
-      if (this.isSource(libs[i])){
-        this.compile(libs[i])
-      }
-    }
+
+  async applyLexi(lines){
+    var newLines = []
+    const path = await tmpNameSync()
+
+    fs.writeFileSync(path, lines.join(os.EOL))
+
+    this.libs = [{
+      path: ":/br/lexi.br",
+      fn: ["fnApplyLexi"]
+    }]
+
+    var result = await this.fn("ApplyLexi", `:${path}`, `:${path}.out`)
+
+    var output = fs.readFileSync(`${path}.out`, 'ascii')
+    return output.split(os.EOL)
+
   }
-  _isSource(fileName){
-    var ext = path.extname(filename)
-    if (ext===".brs" || ext===".wbs"){
-      return true
-    } else {
-      return false
+
+  async decompile(buf){
+    var lines = []
+    const path = await tmpNameSync();
+    fs.writeFileSync(`${path}.br`, buf)
+    try {
+      await this.cmd(`list <:${path}.br >:${path}.brs`)
+    } catch(err){
+      throw err
     }
+    var source = fs.readFileSync(`${path}.brs`, 'ascii')
+    lines = source.split('\r\n')
+    return lines
   }
 
   async compile(lines){
     var result = {
         err: null,
-        path: null
+        path: null,
+        bin: null
     }
 
-    const {fd, path, cleanup} = await file();
+    const path = await tmpNameSync();
     fs.writeFileSync(path, lines.join(os.EOL))
 
     try {
       await this.cmd(`load :${path},source`)
       try {
         await this.cmd(`save :${path}.br`)
+        result.bin = fs.readFileSync(`${path}.br`)
       } catch(err){
         result.err = err
       } finally {
@@ -56,36 +75,11 @@ class Br extends BrProcess {
       }
     } finally {
       await this.cmd('clear')
-      cleanup()
     }
 
     return result
   }
 
-  getCompiledName(sourceFilename){
-    var compiledName = ''
-    switch (path.extname(sourceFilename)) {
-      case '.wbs':
-        compiledName = path.basename(sourceFilename,'.wbs')+'.wb'
-        break;
-      case '.brs':
-        compiledName = path.basename(sourceFilename,'.brs')+'.br'
-        break;
-      default:
-        compiledName = sourceFilename+'.br'
-    }
-    return compiledName
-  }
-  addLineNumbers(code){
-    var lines = code.split("\r\n")
-    if (lines[lines.length-1]===""){
-      lines.pop()
-    }
-    for (var i = 0; i < lines.length; i++) {
-      lines[i] = `${(i+1).toString().padStart(5,0)} ${lines[i]}`
-    }
-    return lines
-  }
   async fn(fn,...args){
 
     var dims = []
@@ -207,97 +201,6 @@ class Br extends BrProcess {
 
     return json
 
-  }
-  async set(name,val,idx){
-    switch (typeof val) {
-      case "string":
-        return new Promise((resolve,reject)=>{
-          this.sendCmd(`${name}$${idx!==undefined?`(${idx+1})`:``}="${val}" \r`).then((result)=>{
-            // remove command line
-            result.shift()
-            // remove trailing whitespace
-            result.unshift()
-            resolve(result[0].substring(1))
-          })
-        })
-        break;
-      case "number":
-        return new Promise((resolve,reject)=>{
-          this.sendCmd(`${name}${idx!==undefined?`(${idx+1})`:``})=${val} \r`).then((result)=>{
-            // remove command line
-            result.shift()
-            // remove trailing whitespace
-            result.unshift()
-            resolve(result[0].substring(1))
-          })
-        })
-        break;
-      case "object":
-        var promises = []
-        for (var i = 0; i < val.length; i++) {
-          promises[i] = new Promise((resolve,reject)=>{
-            this.set(name,val[i],i).then((data)=>{
-              resolve(data)
-            })
-          })
-        }
-        return Promise.all(promises)
-        break;
-      default:
-    }
-  }
-
-  async getVal(name,type,idx=false,size=10){
-    switch (type) {
-      case "string":
-        return new Promise((resolve,reject)=>{
-          this.sendCmd(`${name}$${idx?`(${idx})`:``} \r`).then((data)=>{
-            // remove command line
-            // data.shift()
-            // remove trailing whitespace
-            // data.unshift()
-            resolve(data)
-          })
-        })
-        break;
-      case "number":
-        return new Promise((resolve,reject)=>{
-          this.sendCmd(`${name}${idx?`(${idx+1})`:``} \r`).then((data)=>{
-            // remove command line
-            data.shift()
-            // remove trailing whitespace
-            data.unshift()
-            resolve(parseFloat(data[0]))
-          })
-        })
-        break;
-      case "stringarray":
-        // wip
-        var promises = []
-        for (var i = 0; i < type.length; i++) {
-          promises[i] = new Promise((resolve,reject)=>{
-            this.getVal(name,'string',i).then((data)=>{
-              resolve(data)
-            })
-          })
-        }
-        return Promise.all(promises)
-        break;
-      case "numberarray":
-        // wip
-        var promises = []
-        var arr = []
-        for (var i = 0; i < size; i++) {
-          promises[i] = new Promise((resolve,reject)=>{
-            this.getVal(name,'number',i).then((data)=>{
-              resolve(data)
-            })
-          })
-        }
-        return Promise.all(promises)
-        break;
-      default:
-    }
   }
 }
 

@@ -15,6 +15,20 @@ describe("Br class for high level abstraction", function() {
     await tmp2.stop()
   })
 
+  describe("applyLexi", function() {
+    it("Should should preprocess br code", async function(){
+      var lines = [
+        'let a = 1',
+        'let b = 2'
+      ]
+
+      var newLines = await tmp.applyLexi(lines)
+
+      expect(newLines[0]).to.equal('00001 let a = 1')
+      expect(newLines[1]).to.equal('00002 let b = 2')
+    })
+  })
+
   describe("Process Factory", function() {
     it("Should spawn a br process", async function(){
       expect(tmp.wsid>0).to.equal(true)
@@ -50,17 +64,27 @@ describe("Br class for high level abstraction", function() {
       // expect(err.output[0]).to.equal(` save :${path}`)
       expect(err.output[1]).to.equal(" FNTEST")
 
-      var { err, path } = await tmp.compile([
+      var { err, path, bin } = await tmp.compile([
         `10 let a = 1`
       ])
 
       var list = await tmp.cmd(`list <:${path}`)
+
 
       expect(err).to.equal(null)
       expect(path.length>0).to.equal(true)
       expect(list[1]).to.equal(" 00010 LET A = 1 ")
 
 
+    })
+  })
+
+  describe("De-compile", function(){
+    it("Should return array of lines from buffer", async function(){
+      var buf = Buffer.from("AAAAMwAAABQMJgOAAAAAAAChAAAAKAAAAEcAAAAcAAAAAgAAAGMAAAA+AAAABAEYAAAACQIAAQEBDQBBQAkCAgEDAQ0AQUAIAAAKAAAAAQAAAAIAAQgAABQAAAALAAAAFv/+AQFBAAAAAAAAAAAAAQAAIAAAAAAAAAA/8AAAAAAAAAEBQgAAAAAAAAAAAAEAACAAAAAAAAAAQAAAAAAAAAAAFAEwMDAxMAEBBQVBID0gMQA2cgAUATAwMDIwAQEFBUIgPSAyAAoA", 'base64')
+      var lines = await tmp.decompile(buf)
+      expect(lines[0]).to.equal("00010 LET A = 1")
+      expect(lines[1]).to.equal("00020 LET B = 2")
     })
   })
 
