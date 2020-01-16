@@ -46,9 +46,9 @@ class Br extends BrProcess {
 
   async compile(lines){
     var result = {
-        err: null,
-        path: null,
-        bin: null
+      err: null,
+      path: null,
+      bin: null
     }
 
     const path = await tmpNameSync();
@@ -58,17 +58,17 @@ class Br extends BrProcess {
       await this.cmd(`load :${path},source`)
       try {
         await this.cmd(`save :${path}.br`)
-        result.bin = fs.readFileSync(`${path}.br`)
       } catch(err){
         result.err = err
       } finally {
         result.path = `${path}.br`
+        result.bin = fs.readFileSync(`${path}.br`)
       }
     } catch(err) {
       result.err = err
       try {
         await this.cmd(`list >:${path}.part`)
-        result.err.sourceLine = fs.readFileSync(`${path}.part`).toString().split(os.EOL).length
+        result.err.sourceLine = fs.readFileSync(`${path}.part`, 'ascii').split(os.EOL).length
         await this.cmd(`free :${path}.part`)
       } catch(e) {
         result.err.sourceLine = 1
