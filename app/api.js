@@ -7,14 +7,17 @@ const PORT = 3000
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
 
 app.use(bodyParser.json({
-  type: 'application/json'
+  type: 'application/json',
+  limit: '5mb'
 }))
 
 app.post('/compile', async (req, res) => {
 
   const br = app.locals.br
   const result = {
-    "error": "",
+    "error": 0,
+    "line": 0,
+    "message": "",
     "bin": ""
   }
 
@@ -28,7 +31,10 @@ app.post('/compile', async (req, res) => {
   const { err, bin } = await br.compile(lines)
 
   if (err){
-    result.error = err
+    result.error = err.error
+    result.line = err.line
+    result.sourceLine = err.sourceLine
+    result.message = err.message
   }
 
   if (bin){
