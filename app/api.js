@@ -41,6 +41,7 @@ app.post('/compile', async (req, res) => {
     result.bin = bin.toString('base64')
   }
 
+  res.setHeader('Content-Type', 'text/json');
   res.send(JSON.stringify(result))
 
 })
@@ -49,6 +50,8 @@ app.post('/decompile', async (req, res) => {
 
   const br = app.locals.br
   const bin = Buffer.from(req.body.bin,'base64')
+
+  res.setHeader('Content-Type', 'text/json');
 
   try {
     var lines = await br.decompile(bin)
