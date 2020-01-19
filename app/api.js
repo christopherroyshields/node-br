@@ -3,6 +3,9 @@ const app = express();
 const bodyParser = require('body-parser')
 const Br = require('./br.js')
 
+const {default: PQueue} = require('p-queue');
+const queue = new PQueue({concurrency: 1});
+
 const PORT = 3000
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
 
