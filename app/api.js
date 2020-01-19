@@ -7,15 +7,11 @@ const {default: PQueue} = require('p-queue');
 const queue = new PQueue({concurrency: 1});
 
 const PORT = 3000
-const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
 
 app.use(bodyParser.json({
   type: 'application/json',
   limit: '5mb'
 }))
-
-var compile = async function(lines, br){
-}
 
 app.post('/compile', async (req, res) => {
   const br = app.locals.br
@@ -27,13 +23,7 @@ app.post('/compile', async (req, res) => {
   }
 
   const { err, bin } = await queue.add(async ()=>{
-    var lines = [];
-    if (HAS_LINE_NUMBERS.test(req.body.lines[0])){
-      lines = req.body.lines
-    } else {
-      lines = await br.applyLexi(req.body.lines)
-    }
-    return await br.compile(lines)
+    return await br.compile(req.body.lines)
   })
 
   if (err){
