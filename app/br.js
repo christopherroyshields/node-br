@@ -3,6 +3,10 @@ const path = require('path')
 const fs = require('fs');
 const os = require('os');
 const { tmpNameSync } = require('tmp-promise');
+const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
+
+const {default: PQueue} = require('p-queue');
+const queue = new PQueue({concurrency: 1});
 
 class Br extends BrProcess {
 
@@ -13,20 +17,28 @@ class Br extends BrProcess {
   }
 
   async applyLexi(lines){
-    var newLines = []
-    const path = await tmpNameSync()
-
-    fs.writeFileSync(path, lines.join(os.EOL))
 
     this.libs = [{
       path: ":/br/lexi.br",
       fn: ["fnApplyLexi"]
     }]
 
-    var result = await this.fn("ApplyLexi", `:${path}`, `:${path}.out`)
+    var dontAddLines = HAS_LINE_NUMBERS.test(lines[0]) ? 1 : 0
 
-    var output = fs.readFileSync(`${path}.out`, 'ascii')
-    return output.split(os.EOL)
+    try {
+      const tmpPath = await tmpNameSync()
+      fs.writeFileSync(tmpPath, lines.join(os.EOL))
+      await this.fn("ApplyLexi", `:${tmpPath}`, `:${tmpPath}.out`, dontAddLines, `:${tmpPath}.sourcemap`)
+      var output = fs.readFileSync(`${tmpPath}.out`, 'ascii')
+      var sourceMap = fs.readFileSync(`${tmpPath}.sourcemap`, 'ascii')
+    } catch(err){
+      throw new Error("Error applying Lexi\n" + err)
+    }
+
+    return {
+      lines: output.split(os.EOL),
+      sourceMap: sourceMap
+    }
 
   }
 
@@ -44,32 +56,39 @@ class Br extends BrProcess {
     return lines
   }
 
-  async compile(lines){
+  async compile(lines, applyLexi = true){
     var result = {
       err: null,
       path: null,
       bin: null
     }
 
-    const path = await tmpNameSync();
-    fs.writeFileSync(path, lines.join(os.EOL))
-
+    var sourceMap = ""
     try {
-      await this.cmd(`load :${path},source`)
+      if (applyLexi){
+        var { lines, sourceMap } = await this.applyLexi(lines)
+      }
+
+      let tmpName = await tmpNameSync()
+      fs.writeFileSync(`${tmpName}`, lines.join(os.EOL))
+      await this.cmd(`load :${tmpName},source`)
+
       try {
-        await this.cmd(`save :${path}.br`)
+        await this.cmd(`save :${tmpName}.br`)
       } catch(err){
         result.err = err
       } finally {
-        result.path = `${path}.br`
-        result.bin = fs.readFileSync(`${path}.br`)
+        result.path = `${tmpName}.br`
+        result.bin = fs.readFileSync(`${tmpName}.br`)
       }
+
     } catch(err) {
       result.err = err
       try {
-        await this.cmd(`list >:${path}.part`)
-        result.err.sourceLine = fs.readFileSync(`${path}.part`, 'ascii').split(os.EOL).length
-        await this.cmd(`free :${path}.part`)
+        let tmpName = await tmpNameSync()
+        await this.cmd(`list >:${tmpName}.part`)
+        result.err.sourceLine = fs.readFileSync(`${tmpName}.part`, 'ascii').split(os.EOL).length
+        await this.cmd(`free :${tmpName}.part`)
       } catch(e) {
         result.err.sourceLine = 1
       }
