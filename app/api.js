@@ -11,8 +11,10 @@ app.use(bodyParser.json({
   limit: '5mb'
 }))
 
-app.post('/compile', async (req, res) => {
+var compile = async function(lines, br){
+}
 
+app.post('/compile', async (req, res) => {
   const br = app.locals.br
   const result = {
     "error": 0,
@@ -21,14 +23,15 @@ app.post('/compile', async (req, res) => {
     "bin": ""
   }
 
-  var lines = []
-  if (HAS_LINE_NUMBERS.test(req.body.lines[0])){
-    lines = req.body.lines
-  } else {
-    lines = await br.applyLexi(req.body.lines)
-  }
-
-  const { err, bin } = await br.compile(lines)
+  const { err, bin } = await queue.add(async ()=>{
+    var lines = [];
+    if (HAS_LINE_NUMBERS.test(req.body.lines[0])){
+      lines = req.body.lines
+    } else {
+      lines = await br.applyLexi(req.body.lines)
+    }
+    return await br.compile(lines)
+  })
 
   if (err){
     result.error = err.error
@@ -54,7 +57,9 @@ app.post('/decompile', async (req, res) => {
   res.setHeader('Content-Type', 'text/json');
 
   try {
-    var lines = await br.decompile(bin)
+    const lines = await queue.add(async ()=>{
+      return await br.decompile(bin)
+    })
     res.send(JSON.stringify({
       "lines": lines
     }))
