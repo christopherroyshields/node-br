@@ -22,10 +22,10 @@ describe("Br class for high level abstraction", function() {
         'let b = 2'
       ]
 
-      var newLines = await tmp.applyLexi(lines)
+      var { lines, sourceMap } = await tmp.applyLexi(lines)
 
-      expect(newLines[0]).to.equal('00001 let a = 1')
-      expect(newLines[1]).to.equal('00002 let b = 2')
+      expect(lines[0]).to.equal('00001 let a = 1')
+      expect(lines[1]).to.equal('00002 let b = 2')
     })
   })
 
