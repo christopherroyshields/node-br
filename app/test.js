@@ -181,10 +181,6 @@ describe('BrProcess', function() {
     await br.start()
   })
 
-  after(async function() {
-    await br.stop()
-  })
-
   describe('Startup', function(){
     it("should have assigned a workstation id", function(done){
       expect(br.wsid>0).to.equal(true);
@@ -226,6 +222,18 @@ describe('BrProcess', function() {
       expect(output.length).to.equal(3);
     })
 
+  })
+
+  describe("Stop process", function(){
+    it("Should notify us when a process has ended.", async function(){
+      var result = await new Promise((res)=>{
+        br.on('close', function(){
+          res("ended")
+        })
+        br.stop()
+      })
+      expect(result).to.equal('ended')
+    })
   })
 
 });

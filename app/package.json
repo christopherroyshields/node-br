@@ -4,8 +4,10 @@
   "description": "",
   "main": "br.js",
   "scripts": {
-    "test": "mocha",
     "test-debug": "mocha --inspect-brk=0.0.0.0 --timeout 5000",
+    "test": "mocha",
+    "start-cluster-debug": "node --inspect-brk=0.0.0.0:9229 cluster.js",
+    "start-cluster": "node cluster.js",
     "start-debug": "node --inspect-brk=0.0.0.0 api.js",
     "start": "node api.js"
   },

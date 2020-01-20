@@ -39,6 +39,10 @@ app.post('/compile', async (req, res) => {
 
   res.setHeader('Content-Type', 'text/json');
   res.send(JSON.stringify(result))
+  process.send({
+    cmd: 'request',
+    wsid: br.wsid
+  })
 
 })
 
@@ -64,15 +68,20 @@ app.post('/decompile', async (req, res) => {
 
 })
 
-Br.spawn().then((br)=>{
-  br.libs = [{
-    path: `:/br/lexi`,
-    fn: ["fnApplyLexi"]
-  }]
+async function start(port){
+  app.locals.br = await Br.spawn()
+  await new Promise((resolve)=>{
+    app.listen(port, ()=>{
+      resolve()
+    })
+  })
+  return app.locals.br
+}
 
-  app.locals.br = br
-
-  app.listen(PORT,()=>{
-    console.log(`Server listening on port ${PORT}`);
+start(3000).then((br)=>{
+  process.send({
+    cmd: `started`,
+    wsid: br.wsid,
+    concurrency: br.concurrency
   })
 })

@@ -191,6 +191,10 @@ class BrProcess extends EventEmitter {
       this.ps.on('data',(data)=>{
         this.parser.parse(data)
       })
+
+      this.ps.on('close', (code, sig)=>{
+        this.emit('close')
+      })
     })
   }
 
