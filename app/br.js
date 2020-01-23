@@ -1,6 +1,6 @@
 const BrProcess = require('./run.js')
 const path = require('path')
-const fs = require('fs');
+const fs = require('fs').promises
 const os = require('os');
 const { tmpNameSync } = require('tmp-promise');
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
@@ -23,14 +23,19 @@ class Br extends BrProcess {
       fn: ["fnApplyLexi"]
     }]
 
-    var dontAddLines = HAS_LINE_NUMBERS.test(lines[0]) ? 1 : 0
+    let dontAddLines = HAS_LINE_NUMBERS.test(lines[0]) ? 1 : 0
 
+    let output = ""
+    let sourceMap = ""
     try {
-      const tmpPath = await tmpNameSync()
-      fs.writeFileSync(tmpPath, lines.join(os.EOL))
+      let tmpPath = await tmpNameSync()
+      await fs.writeFile(tmpPath, lines.join(os.EOL))
       await this.fn("ApplyLexi", `:${tmpPath}`, `:${tmpPath}.out`, dontAddLines, `:${tmpPath}.sourcemap`)
-      var output = fs.readFileSync(`${tmpPath}.out`, 'ascii')
-      var sourceMap = fs.readFileSync(`${tmpPath}.sourcemap`, 'ascii')
+      output = await fs.readFile(`${tmpPath}.out`, 'ascii')
+      sourceMap = await fs.readFile(`${tmpPath}.sourcemap`, 'ascii')
+      fs.unlink(`${tmpPath}`)
+      fs.unlink(`${tmpPath}.out`)
+      fs.unlink(`${tmpPath}.sourcemap`)
     } catch(err){
       throw new Error("Error applying Lexi\n" + err)
     }
@@ -43,34 +48,41 @@ class Br extends BrProcess {
   }
 
   async decompile(buf){
-    var lines = []
-    const path = await tmpNameSync();
-    fs.writeFileSync(`${path}.br`, buf)
+    let lines = []
     try {
+      let path = await tmpNameSync()
+      await fs.writeFile(`${path}.br`, buf, 'binary')
       await this.cmd(`list <:${path}.br >:${path}.brs`)
+      let source = await fs.readFile(`${path}.brs`, 'ascii')
+      lines = source.split('\r\n')
+      fs.unlink(`${path}.br`)
+      fs.unlink(`${path}.brs`)
     } catch(err){
       throw err
     }
-    var source = fs.readFileSync(`${path}.brs`, 'ascii')
-    lines = source.split('\r\n')
+
+    // remove empty line
+    if (lines)
+      lines.pop()
+
     return lines
   }
 
   async compile(lines, applyLexi = true){
     var result = {
       err: null,
-      path: null,
       bin: null
     }
 
     var sourceMap = ""
+    var tmpName = ""
     try {
       if (applyLexi){
         var { lines, sourceMap } = await this.applyLexi(lines)
       }
 
-      let tmpName = await tmpNameSync()
-      fs.writeFileSync(`${tmpName}`, lines.join(os.EOL))
+      tmpName = await tmpNameSync()
+      await fs.writeFile(`${tmpName}`, lines.join(os.EOL))
       await this.cmd(`load :${tmpName},source`)
 
       try {
@@ -78,8 +90,8 @@ class Br extends BrProcess {
       } catch(err){
         result.err = err
       } finally {
-        result.path = `${tmpName}.br`
-        result.bin = fs.readFileSync(`${tmpName}.br`)
+        result.bin = await fs.readFile(`${tmpName}.br`)
+        fs.unlink(`${tmpName}.br`)
       }
 
     } catch(err) {
@@ -87,13 +99,14 @@ class Br extends BrProcess {
       try {
         let tmpName = await tmpNameSync()
         await this.cmd(`list >:${tmpName}.part`)
-        result.err.sourceLine = fs.readFileSync(`${tmpName}.part`, 'ascii').split(os.EOL).length
-        await this.cmd(`free :${tmpName}.part`)
+        result.err.sourceLine = await fs.readFile(`${tmpName}.part`, 'ascii').split(os.EOL).length
+        fs.unlink(`${tmpName}.part`)
       } catch(e) {
         result.err.sourceLine = 1
       }
     } finally {
       await this.cmd('clear')
+      fs.unlink(`${tmpName}`)
     }
 
     return result

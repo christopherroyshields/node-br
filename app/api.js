@@ -1,6 +1,7 @@
 const express = require('express')
 const app = express();
 const bodyParser = require('body-parser')
+const cluster = require('cluster');
 const Br = require('./br.js')
 
 const {default: PQueue} = require('p-queue');
@@ -39,10 +40,13 @@ app.post('/compile', async (req, res) => {
 
   res.setHeader('Content-Type', 'text/json');
   res.send(JSON.stringify(result))
-  process.send({
-    cmd: 'request',
-    wsid: br.wsid
-  })
+
+  if (cluster.isWorker){
+    process.send({
+      cmd: 'request',
+      wsid: br.wsid
+    })
+  }
 
 })
 
@@ -79,9 +83,13 @@ async function start(port){
 }
 
 start(3000).then((br)=>{
-  process.send({
-    cmd: `started`,
-    wsid: br.wsid,
-    concurrency: br.concurrency
-  })
+  if (cluster.isWorker){
+    process.send({
+      cmd: `started`,
+      wsid: br.wsid,
+      concurrency: br.concurrency
+    })
+  } else {
+    console.log(`Api started on port ${PORT} with WSID ${br.wsid}`)
+  }
 })
