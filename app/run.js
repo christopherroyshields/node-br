@@ -6,6 +6,7 @@ const os = require('os')
 const AnsiParser = require('node-ansiparser');
 const chalk = require('chalk');
 const tmp = require('tmp-promise');
+const {default: PQueue} = require('p-queue');
 
 const PROMT_TO_END = /Press any key to exit./
 const PROMPT_FOR_KEYPRESS = /Press any key to continue ..../
@@ -96,6 +97,8 @@ class BrProcess extends EventEmitter {
     this.load_errors = []
 
     this.shows = 0
+
+    this.queue = new PQueue({concurrency: 1});
 
     this.parser = new AnsiParser({
       inst_p: this._onPrint.bind(this),

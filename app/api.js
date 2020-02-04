@@ -2,11 +2,12 @@ const express = require('express')
 const app = express();
 const bodyParser = require('body-parser')
 const cluster = require('cluster');
+const fs = require('fs').promises;
 const Br = require('./br.js')
+const os = require('os');
+const { tmpNameSync } = require('tmp-promise');
 
-const {default: PQueue} = require('p-queue');
-const queue = new PQueue({concurrency: 1});
-
+const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
 const PORT = 3000
 
 app.use(bodyParser.json({
@@ -15,27 +16,39 @@ app.use(bodyParser.json({
 }))
 
 app.post('/compile', async (req, res) => {
+
   const br = app.locals.br
   const result = {
     "error": 0,
     "line": 0,
     "message": "",
-    "bin": ""
+    "bin": null
   }
 
-  const { err, bin } = await queue.add(async ()=>{
-    return await br.compile(req.body.lines)
-  })
+  if (req.body.lines){
+    try {
+      let tmpFile = await tmpNameSync()
+      await fs.writeFile(tmpFile, req.body.lines.join(os.EOL), 'ascii')
 
-  if (err){
-    result.error = err.error
-    result.line = err.line
-    result.sourceLine = err.sourceLine
-    result.message = err.message
-  }
+      if (HAS_LINE_NUMBERS.test(req.body.lines[0])){
+        var {err, bin} = await br.compile(tmpFile, false, false)
+      } else {
+        var {err, bin} = await br.compile(tmpFile, true, true)
+      }
 
-  if (bin){
-    result.bin = bin.toString('base64')
+      if (err){
+        result.error = err.error
+        result.line = err.line
+        result.sourceLine = err.sourceLine
+        result.message = err.toString()
+      }
+      if (bin){
+        result.bin = bin.toString('base64')
+      }
+
+    } catch(err){
+      result.message = err.toString()
+    }
   }
 
   res.setHeader('Content-Type', 'text/json');
@@ -53,21 +66,34 @@ app.post('/compile', async (req, res) => {
 app.post('/decompile', async (req, res) => {
 
   const br = app.locals.br
-  const bin = Buffer.from(req.body.bin,'base64')
-
-  res.setHeader('Content-Type', 'text/json');
+  let
+    bin = Buffer.from(req.body.bin,'base64'),
+    lines = null,
+    source = null,
+    e = null
 
   try {
-    const lines = await queue.add(async ()=>{
-      return await br.decompile(bin)
-    })
-    res.send(JSON.stringify({
-      "lines": lines
-    }))
+    let tmpName = await tmpNameSync()
+    let binPath = `${tmpName}.br`
+    let sourcePath = `${tmpName}.brs`
+
+    await fs.writeFile(`${binPath}`, bin, 'binary')
+    await br.decompile(binPath, sourcePath)
+
+    source = await fs.readFile(sourcePath, 'ascii')
+    lines = source.split('\r\n')
   } catch(err){
-    res.send(JSON.stringify({
-      "error": err
-    }))
+    e = err
+  }
+
+  res.setHeader('Content-Type', 'text/json');
+  res.send(JSON.stringify({lines}))
+
+  try {
+    fs.unlink(binPath)
+    fs.unlink(sourcePath)
+  } catch(err){
+    console.error("Error removing files after decompile.", err);
   }
 
 })

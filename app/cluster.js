@@ -18,10 +18,10 @@ function startWorkers(workers){
     }
     if (msg.cmd==='request'){
       requestCount += 1
-      console.log(`requestCount: ${requestCount}`);
+      // console.log(`requestCount: ${requestCount}`);
 
       workers[msg.wsid].requestCount += 1
-      console.log(`WSID ${msg.wsid} handled ${workers[msg.wsid].requestCount} requests.`)
+      // console.log(`WSID ${msg.wsid} handled ${workers[msg.wsid].requestCount} requests.`)
     }
   })
 }

@@ -5,9 +5,6 @@ const os = require('os');
 const { tmpNameSync } = require('tmp-promise');
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
 
-const {default: PQueue} = require('p-queue');
-const queue = new PQueue({concurrency: 1});
-
 class Br extends BrProcess {
 
   static async spawn(log=false, libs=[]){
@@ -16,98 +13,94 @@ class Br extends BrProcess {
     return br
   }
 
-  async applyLexi(lines){
+  async applyLexi(tmpPath, addLineNumbers = true){
 
     this.libs = [{
       path: ":/br/lexi.br",
       fn: ["fnApplyLexi"]
     }]
 
-    let dontAddLines = HAS_LINE_NUMBERS.test(lines[0]) ? 1 : 0
-
     let output = ""
     let sourceMap = ""
     try {
-      let tmpPath = await tmpNameSync()
-      await fs.writeFile(tmpPath, lines.join(os.EOL))
-      await this.fn("ApplyLexi", `:${tmpPath}`, `:${tmpPath}.out`, dontAddLines, `:${tmpPath}.sourcemap`)
-      output = await fs.readFile(`${tmpPath}.out`, 'ascii')
+      await this.fn("ApplyLexi", `:${tmpPath}`, `:${tmpPath}.out`, addLineNumbers ? 0 : 1, `:${tmpPath}.sourcemap`)
       sourceMap = await fs.readFile(`${tmpPath}.sourcemap`, 'ascii')
-      fs.unlink(`${tmpPath}`)
-      fs.unlink(`${tmpPath}.out`)
-      fs.unlink(`${tmpPath}.sourcemap`)
     } catch(err){
       throw new Error("Error applying Lexi\n" + err)
     }
-
-    return {
-      lines: output.split(os.EOL),
-      sourceMap: sourceMap
-    }
-
   }
 
-  async decompile(buf){
-    let lines = []
+  async decompile(binPath, sourcePath){
     try {
-      let path = await tmpNameSync()
-      await fs.writeFile(`${path}.br`, buf, 'binary')
-      await this.cmd(`list <:${path}.br >:${path}.brs`)
-      let source = await fs.readFile(`${path}.brs`, 'ascii')
-      lines = source.split('\r\n')
-      fs.unlink(`${path}.br`)
-      fs.unlink(`${path}.brs`)
+      await this.queue.add(async ()=>{
+        await this.cmd(`list <:${binPath} >:${sourcePath}`)
+      })
     } catch(err){
       throw err
     }
-
-    // remove empty line
-    if (lines)
-      lines.pop()
-
-    return lines
   }
 
-  async compile(lines, applyLexi = true){
+  async compile(sourcePath, applyLexi = true, addLineNumbers = true){
     var result = {
       err: null,
       bin: null
     }
 
-    var sourceMap = ""
-    var tmpName = ""
-    try {
-      if (applyLexi){
-        var { lines, sourceMap } = await this.applyLexi(lines)
-      }
+    let sourceMap = []
 
-      tmpName = await tmpNameSync()
-      await fs.writeFile(`${tmpName}`, lines.join(os.EOL))
-      await this.cmd(`load :${tmpName},source`)
-
+    if (applyLexi){
       try {
-        await this.cmd(`save :${tmpName}.br`)
-      } catch(err){
-        result.err = err
+        await this.applyLexi(sourcePath, addLineNumbers)
+        sourcePath = `${sourcePath}.out`
+      } catch (err) {
+        throw err
+      }
+    }
+
+    let
+      bin = null,
+      part = null,
+      e = null
+
+    await this.queue.add(async ()=>{
+      try {
+        await this.cmd(`load :${sourcePath},source`)
+        try {
+          bin = `${sourcePath}.br`
+          await this.cmd(`save :${bin}`)
+        } catch(err){
+          e = err
+        }
+      } catch(err) {
+        e = err
+        try {
+          part = `${sourcePath}.part`
+          await this.cmd(`list >:${part}`)
+        } catch(err) {
+          part = ``
+        }
       } finally {
-        result.bin = await fs.readFile(`${tmpName}.br`)
-        fs.unlink(`${tmpName}.br`)
+        await this.cmd('clear')
       }
+    })
 
-    } catch(err) {
-      result.err = err
-      try {
-        let tmpName = await tmpNameSync()
-        await this.cmd(`list >:${tmpName}.part`)
-        result.err.sourceLine = await fs.readFile(`${tmpName}.part`, 'ascii').split(os.EOL).length
-        fs.unlink(`${tmpName}.part`)
-      } catch(e) {
+    if (bin){
+      result.bin = await fs.readFile(`${sourcePath}.br`)
+    }
+
+    if (e){
+      result.err = e
+      if (part){
+        let partData = await fs.readFile(`${part}`, 'ascii')
+        result.err.sourceLine = partData.split(os.EOL).length
+      } else {
         result.err.sourceLine = 1
       }
-    } finally {
-      await this.cmd('clear')
-      fs.unlink(`${tmpName}`)
     }
+
+    // fs.unlink(`${sourcePath}.br`)
+    // fs.unlink(`${sourcePath}.part`)
+    // fs.unlink(`${sourcePath}`)
 
     return result
   }
@@ -212,26 +205,20 @@ class Br extends BrProcess {
     for (var i = 0; i < codeLines.length; i++) {
       // console.log(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}\r`)
       commands.push(`${(i+1).toString().padStart(5,0)} ${codeLines[i]}`)
-      if (i===codeLines.length-1){
-        commands.push(`${(i+2).toString().padStart(5,0)} stop`)
+    }
+    commands.push("run")
+
+    let output = []
+    await this.queue.add(async ()=>{
+      try {
+        output = await this.proc(commands)
+      } catch(err){
+        throw err
+      } finally {
+        await this.cmd("clear")
       }
-    }
-
-    var output = ""
-    var json = {}
-
-    try {
-      await this.proc(commands)
-      output = await this.cmd("run")
-      json = JSON.parse(output.splice(1).join(''))
-    } catch(err){
-      console.error(err);
-    } finally {
-      await this.cmd("clear")
-    }
-
-    return json
-
+    })
+    return JSON.parse(output[output.length-1].slice(1).join("").trim())
   }
 }
 
