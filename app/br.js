@@ -13,18 +13,23 @@ class Br extends BrProcess {
     return br
   }
 
-  async applyLexi(tmpPath, addLineNumbers = true){
+  async applyLexi(sourcePath, outPath= "", mapPath = "", addLineNumbers = true){
 
     this.libs = [{
       path: ":/br/lexi.br",
       fn: ["fnApplyLexi"]
     }]
 
-    let output = ""
-    let sourceMap = ""
+    if (outPath.length === 0){
+      outPath = `${sourcePath}.out`
+    }
+
+    if (mapPath.length === 0){
+      mapPath = `${sourcePath}.map`
+    }
+
     try {
-      await this.fn("ApplyLexi", `:${tmpPath}`, `:${tmpPath}.out`, addLineNumbers ? 0 : 1, `:${tmpPath}.sourcemap`)
-      sourceMap = await fs.readFile(`${tmpPath}.sourcemap`, 'ascii')
+      await this.fn("ApplyLexi", `:${sourcePath}`, `:${outPath}`, addLineNumbers ? 0 : 1, `:${sourcePath}.sourcemap`)
     } catch(err){
       throw new Error("Error applying Lexi\n" + err)
     }
@@ -46,11 +51,9 @@ class Br extends BrProcess {
       bin: null
     }
 
-    let sourceMap = []
-
     if (applyLexi){
       try {
-        await this.applyLexi(sourcePath, addLineNumbers)
+        await this.applyLexi(sourcePath, `${sourcePath}.out`, `${sourcePath}.map`, addLineNumbers)
         sourcePath = `${sourcePath}.out`
       } catch (err) {
         throw err

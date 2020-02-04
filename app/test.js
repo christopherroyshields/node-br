@@ -1,6 +1,8 @@
 const {expect} = require('chai')
 const BrProcess = require('./run.js')
 const Br = require('./br.js');
+const os = require('os');
+const fs = require('fs').promises;
 
 describe("Br class for high level abstraction", function() {
   var tmp = {}
@@ -22,10 +24,23 @@ describe("Br class for high level abstraction", function() {
         'let b = 2'
       ]
 
-      var { lines, sourceMap } = await tmp.applyLexi(lines)
+      debugger
+
+      let sourcePath = "/test/lexitest1.brs"
+
+      try {
+        await fs.writeFile("/test/lexitest1.brs", lines.join(os.EOL), 'ascii')
+      } catch(err) {
+        debugger
+      }
+
+      await tmp.applyLexi("lexitest1.brs", "lexitest1.out", "lexitest1.map", true)
+      var lexiOutput = await fs.readFile("lexitest1.out")
+      var outputLines = lexiOutput.split(os.EOL)
 
       expect(lines[0]).to.equal('00001 let a = 1')
       expect(lines[1]).to.equal('00002 let b = 2')
+
     })
   })
 
