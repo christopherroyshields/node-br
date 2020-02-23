@@ -3,45 +3,29 @@ const BrProcess = require('./run.js')
 const Br = require('./br.js');
 const os = require('os');
 const fs = require('fs').promises;
+const { tmpNameSync } = require('tmp-promise');
 
 describe("Br class for high level abstraction", function() {
-  var tmp = {}
-  var tmp2 = {}
+  var
+    tmp = {},
+    tmp2 = {},
+    tmpPath = '',
+    tmpSource = '',
+    tmpOut = '',
+    tmpMap = ''
+
   before(async function(){
     tmp = await Br.spawn()
     tmp2 = await Br.spawn()
+    tmpPath = await tmpNameSync()
+    tmpSource = `${tmpPath}.brs`
+    tmpOut = `${tmpPath}.out`
+    tmpMap = `${tmpPath}.map`
   })
 
   after(async function(){
     await tmp.stop()
     await tmp2.stop()
-  })
-
-  describe("applyLexi", function() {
-    it("Should should preprocess br code", async function(){
-      var lines = [
-        'let a = 1',
-        'let b = 2'
-      ]
-
-      debugger
-
-      let sourcePath = "/test/lexitest1.brs"
-
-      try {
-        await fs.writeFile("/test/lexitest1.brs", lines.join(os.EOL), 'ascii')
-      } catch(err) {
-        debugger
-      }
-
-      await tmp.applyLexi("lexitest1.brs", "lexitest1.out", "lexitest1.map", true)
-      var lexiOutput = await fs.readFile("lexitest1.out")
-      var outputLines = lexiOutput.split(os.EOL)
-
-      expect(lines[0]).to.equal('00001 let a = 1')
-      expect(lines[1]).to.equal('00002 let b = 2')
-
-    })
   })
 
   describe("Process Factory", function() {
@@ -51,53 +35,76 @@ describe("Br class for high level abstraction", function() {
     })
   })
 
+  describe("applyLexi", function() {
+    it("Should should preprocess br code", async function(){
+      var lines = [
+        'let a = 1',
+        'let b = 2',
+        'let c$ = `teststring`'
+      ]
+
+      await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
+
+      await tmp.applyLexi(tmpSource, tmpOut, tmpMap, true)
+
+      var lexiOutput = await fs.readFile(tmpOut)
+      var outputLines = lexiOutput.toString().split(os.EOL)
+
+      expect(outputLines[0]).to.equal('00001 let a = 1')
+      expect(outputLines[1]).to.equal('00002 let b = 2')
+      expect(outputLines[2]).to.equal('00003 let c$ = "teststring"')
+
+    })
+  })
+
   describe("Compile", function(){
     it("Should create a br program from source", async function(){
 
-      var { err, path } = await tmp.compile([
+      var lines = [
         `10 let a = 1`,
         `20 let b = "a"`
-      ])
+      ]
 
-      expect(err.error).to.equal(1026)
-      expect(err.sourceLine).to.equal(2)
+      await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
+      var compileResult = await tmp.compile(tmpSource, false, false)
 
-      var { err, path } = await tmp2.compile([
-        `10 let a = 1`,
-        `20 let b = "a"`
-      ])
+      expect(compileResult.err.error).to.equal(1026)
+      expect(compileResult.err.sourceLine).to.equal(2)
 
-      expect(err.error).to.equal(1026)
-      expect(err.sourceLine).to.equal(2)
-
-      var { err, path } = await tmp.compile([
+      var lines = [
         `10 let a = 1`,
         `20 let b = fntest`
-      ])
+      ]
 
-      expect(err.error).to.equal(302)
-      // expect(err.output[0]).to.equal(` save :${path}`)
-      expect(err.output[1]).to.equal(" FNTEST")
+      await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
+      var compileResult = await tmp.compile(tmpSource, false, false)
 
-      var { err, path, bin } = await tmp.compile([
+      expect(compileResult.err.error).to.equal(302)
+      expect(compileResult.err.output[1]).to.equal(" FNTEST")
+
+      var lines = [
         `10 let a = 1`
-      ])
+      ]
 
-      var list = await tmp.cmd(`list <:${path}`)
+      await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
+      var compileResult = await tmp.compile(tmpSource, false, false)
+      var list = await tmp.cmd(`list <:${compileResult.binPath}`)
 
-
-      expect(err).to.equal(null)
-      expect(path.length>0).to.equal(true)
+      expect(compileResult.err).to.equal(null)
+      expect(compileResult.binPath.length>0).to.equal(true)
       expect(list[1]).to.equal(" 00010 LET A = 1 ")
-
 
     })
   })
 
   describe("De-compile", function(){
     it("Should return array of lines from buffer", async function(){
+
       var buf = Buffer.from("AAAAMwAAABQMJgOAAAAAAAChAAAAKAAAAEcAAAAcAAAAAgAAAGMAAAA+AAAABAEYAAAACQIAAQEBDQBBQAkCAgEDAQ0AQUAIAAAKAAAAAQAAAAIAAQgAABQAAAALAAAAFv/+AQFBAAAAAAAAAAAAAQAAIAAAAAAAAAA/8AAAAAAAAAEBQgAAAAAAAAAAAAEAACAAAAAAAAAAQAAAAAAAAAAAFAEwMDAxMAEBBQVBID0gMQA2cgAUATAwMDIwAQEFBUIgPSAyAAoA", 'base64')
-      var lines = await tmp.decompile(buf)
+      await fs.writeFile("/tmp/test.br", buf)
+      await tmp.decompile("/tmp/test.br", "/tmp/test.brs")
+      var lines = (await fs.readFile("/tmp/test.brs", 'ascii')).split("\r\n")
+
       expect(lines[0]).to.equal("00010 LET A = 1")
       expect(lines[1]).to.equal("00020 LET B = 2")
     })
@@ -106,41 +113,42 @@ describe("Br class for high level abstraction", function() {
   describe("Library Function", function() {
     it("Should call a library function", async function(){
       // create Library
-      var lib = {}
-      lib = await tmp.compile([
+      var lines = [
         "10 def library fntest(&a,&b)",
         "20   let a = 10",
         "30   let b = 20",
         "40   let fntest = 30",
         "50 fnend"
-      ])
+      ]
 
+      await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
+      var compileResult = await tmp.compile(tmpSource, false, false)
       tmp.libs = [{
-        path: `:${lib.path}`,
+        path: `:${compileResult.binPath}`,
         fn: ["fntest"]
       }]
 
       var output = await tmp.fn("test", 1, 2)
-      await tmp.cmd(`free :${lib.path}`)
       expect(output.results[0]).to.equal(10)
       expect(output.results[1]).to.equal(20)
       expect(output.return).to.equal(30)
 
-      lib = await tmp.compile([
+      var lines = [
         "10 def library fntest$(&a$,&b$)",
         "20   let a$ = a$&'test1'",
         "30   let b$ = b$&'test2'",
         "40   let fntest$ = 'test return'",
         "50 fnend"
-      ])
+      ]
 
+      await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
+      var compileResult = await tmp.compile(tmpSource, false, false)
       tmp.libs = [{
-        path: `:${lib.path}`,
+        path: `:${compileResult.binPath}`,
         fn: ["fntest$"]
       }]
 
       var output = await tmp.fn("test$", "in1", "in2")
-      await tmp.cmd(`free :${lib.path}`)
       expect(output.results[0]).to.equal("in1test1")
       expect(output.results[1]).to.equal("in2test2")
       expect(output.return).to.equal('test return')

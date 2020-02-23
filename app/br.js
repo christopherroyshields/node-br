@@ -1,6 +1,7 @@
 const BrProcess = require('./run.js')
 const path = require('path')
 const fs = require('fs').promises
+const exists = require('fs').existsSync
 const os = require('os');
 const { tmpNameSync } = require('tmp-promise');
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
@@ -48,7 +49,8 @@ class Br extends BrProcess {
   async compile(sourcePath, applyLexi = true, addLineNumbers = true){
     var result = {
       err: null,
-      bin: null
+      bin: null,
+      binPath: null
     }
 
     if (applyLexi){
@@ -68,16 +70,21 @@ class Br extends BrProcess {
     await this.queue.add(async ()=>{
       try {
         await this.cmd(`load :${sourcePath},source`)
+        var res
         try {
-          bin = `${sourcePath}.br`
-          await this.cmd(`save :${bin}`)
+          bin = path.join(path.dirname(sourcePath), path.basename(sourcePath, path.extname(sourcePath)) + ".br")
+          if (exists(bin)) {
+            await this.cmd(`replace :${bin}`)
+          } else {
+            await this.cmd(`save :${bin}`)
+          }
         } catch(err){
           e = err
         }
       } catch(err) {
         e = err
         try {
-          part = `${sourcePath}.part`
+          part = path.join(path.dirname(sourcePath), path.basename(sourcePath, path.extname(sourcePath)) + ".part")
           await this.cmd(`list >:${part}`)
         } catch(err) {
           part = ``
@@ -88,7 +95,8 @@ class Br extends BrProcess {
     })
 
     if (bin){
-      result.bin = await fs.readFile(`${sourcePath}.br`)
+      result.binPath = bin
+      result.bin = await fs.readFile(bin)
     }
 
     if (e){
