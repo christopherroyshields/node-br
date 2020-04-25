@@ -1,6 +1,6 @@
 FROM node:13-alpine
 
-COPY --from=br:scratch . /
+COPY --from=brulescorp/br:scratch . /
 
 RUN apk update && apk add \
   git \
