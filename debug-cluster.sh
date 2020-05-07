@@ -15,4 +15,4 @@ docker run -it \
   -v "$PWD/br:/br" \
   --name node-br \
   --rm \
-  br:node-br npm run-script start-cluster-debug
+ brulescorp/br:node-br npm run-script start-cluster-debug

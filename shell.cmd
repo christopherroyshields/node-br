@@ -1,5 +1,4 @@
-#!/bin/sh
-docker build -t br:node-br .
+docker build -tbrulescorp/br:node-br .
 docker run -it ^
   --init ^
   -p 9229:9229 ^
@@ -7,4 +6,4 @@ docker run -it ^
   -v "%cd%\brserial.dat:/br/brserial.dat" ^
   --name node-br ^
   --rm ^
-  br:node-br /bin/bash
+ brulescorp/br:node-br /bin/bash

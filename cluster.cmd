@@ -4,4 +4,4 @@ docker run -it ^
   -v "%CD%\brserial.dat:/br/brserial.dat" ^
   --name node-br ^
   --rm ^
-  br:node-br npm run-script start-cluster
+  brulescorp/br:node-br npm run-script start-cluster

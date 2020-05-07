@@ -9,11 +9,49 @@ const { tmpNameSync } = require('tmp-promise');
 
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
 const PORT = 3000
+const IP = '0.0.0.0'
 
 app.use(bodyParser.json({
   type: 'application/json',
   limit: '5mb'
 }))
+
+app.use((req, res, next) => {
+  // set some custom br realted header at beginning of request
+  res.set({
+    'x-br-wsid': app.locals.br.wsid
+  })
+
+  next()
+})
+
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+      <head>
+        <title>Lexi API</title>
+      </head>
+      <body>
+        <h1>Welcome to the Lexi API!</h1>
+        <p>
+          Lexi is a Lexical Preprocessor for the Business Rules language. It enables the BR Programmer <br>
+          to use Modern Editors, and many modern program statements that aren't supported in BR directly. <br>
+          Lexi makes line numbers optional, and adds Select Case, and Multiline Strings and Multiline Comments <br>
+          and much much more, to Business Rules. <br>
+        </p>
+        <p>
+          Web API by Christopher Shields
+        </p>
+        <em>Copyright Notices</em>
+        <ul>
+          <li>Copyright 2003 Gabriel Bakker</li>
+          <li>Copyright 2007 Sage AX, LLC and Gabriel Bakker</li>
+          <li>Copyright 2020 Christopher Shields</li>
+        </ul>
+      </body>
+    </html>
+    `)
+})
 
 app.post('/compile', async (req, res) => {
 
@@ -98,17 +136,17 @@ app.post('/decompile', async (req, res) => {
 
 })
 
-async function start(port){
+async function start(port, ip){
   app.locals.br = await Br.spawn()
   await new Promise((resolve)=>{
-    app.listen(port, ()=>{
+    app.listen(port, ip, ()=>{
       resolve()
     })
   })
   return app.locals.br
 }
 
-start(3000).then((br)=>{
+start(PORT, IP).then((br)=>{
   if (cluster.isWorker){
     process.send({
       cmd: `started`,
@@ -116,6 +154,6 @@ start(3000).then((br)=>{
       concurrency: br.concurrency
     })
   } else {
-    console.log(`Api started on port ${PORT} with WSID ${br.wsid}`)
+    console.log(`Api started on port ${PORT} bound to IP ${IP} with WSID ${br.wsid}`)
   }
 })

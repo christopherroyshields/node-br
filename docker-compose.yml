@@ -1,0 +1,12 @@
+version: "3.7"
+services:
+  api:
+    image: brulescorp/br:node-br
+    command: ["npm", "run-script", "start-cluster"]
+    container_name: lexi_api1
+    ports:
+      - "3000:3000"
+    volumes:
+      - type: bind
+        source: ./brserial.dat
+        target: /br/brserial.dat
