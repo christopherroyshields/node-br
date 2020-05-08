@@ -1,4 +1,3 @@
-#!/bin/sh
 docker run -it ^
   --init ^
   -p 9229:9229 ^

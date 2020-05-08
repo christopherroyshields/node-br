@@ -4,4 +4,4 @@ docker run --init \
   -v "$PWD/brserial.dat:/br/brserial.dat" \
   --name node-br \
   --rm \
-  brulescorp/br:node-br npm run-script start-cluster
+  brulescorp/br:node-br node cluster.js

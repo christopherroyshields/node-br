@@ -2,7 +2,7 @@
   "name": "app",
   "version": "1.0.0",
   "description": "",
-  "main": "br.js",
+  "main": "br",
   "scripts": {
     "test-debug": "mocha --inspect-brk=0.0.0.0 --timeout 5000",
     "test": "mocha",
