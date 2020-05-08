@@ -1,12 +1,38 @@
 version: "3.7"
 services:
-  api:
-    image: brulescorp/br:node-br
+  node-br:
+    image: "brulescorp/br:node-br"
     command: ["npm", "run-script", "start-cluster"]
-    container_name: lexi_api1
+    networks:
+      - 'traefik-net'
     ports:
-      - "3000:3000"
+      - "3000"
     volumes:
       - type: bind
         source: ./brserial.dat
         target: /br/brserial.dat
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.node-br.rule=Host(`cloudlexi.com`)"
+  reverse-proxy:
+    # The official v2 Traefik docker image
+    image: traefik:v2.2
+    # Enables the web UI and tells Traefik to listen to docker
+    command: --api.insecure=true --providers.docker --providers.docker.exposedByDefault=false --providers.docker.network=traefik-net --providers.docker.useBindPortIP=true
+    networks:
+      - 'traefik-net'
+    ports:
+      # The HTTP port
+      - "80:80"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.reverse-proxy.rule=Host(`traefik.cloudlexi.com`)"
+      - "traefik.http.services.reverse-proxy-traefik.loadbalancer.server.port=8080"
+networks:
+  traefik-net:
+    external: true
