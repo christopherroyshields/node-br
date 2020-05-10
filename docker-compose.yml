@@ -1,10 +1,32 @@
 version: "3.7"
 services:
+  traefik:
+    image: traefik:v2.2.1
+    networks:
+      - 'traefik-net'
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.toml:/traefik.toml
+      - type: bind
+        source: ./acme.json
+        target: /acme.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.rule=Host(`traefik.cybertron.cloud`)"
+      - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.routers.api.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=admin:fakepass"
+    environment:
+      - LINODE_TOKEN=faketoken
   node-br:
     image: "brulescorp/br:node-br"
-    command: ["npm", "run-script", "start-cluster"]
+    command: ["node", "cluster.js"]
     depends_on:
-      - reverse-proxy
+      - traefik
     networks:
       - traefik-net
     volumes:
@@ -14,26 +36,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.node-br.rule=Host(`cloudlexi.com`)"
+      - "traefik.http.routers.node-br.entrypoints=websecure"
+      - "traefik.http.routers.node-br.tls=true"
+      - "traefik.http.routers.node-br.tls.certresolver=myresolver"
       - "traefik.http.services.node-br-node-br.loadbalancer.server.port=3000"
-  reverse-proxy:
-    # The official v2 Traefik docker image
-    image: traefik:v2.2
-    # Enables the web UI and tells Traefik to listen to docker
-    command: --api.insecure=true --providers.docker --providers.docker.exposedByDefault=false --providers.docker.network=traefik-net --providers.docker.useBindPortIP=true
-    networks:
-      - 'traefik-net'
-    ports:
-      # The HTTP port
-      - "80:80"
-      # The Web UI (enabled by --api.insecure=true)
-      # - "8080:8080"
-    volumes:
-      # So that Traefik can listen to the Docker events
-      - /var/run/docker.sock:/var/run/docker.sock
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.reverse-proxy.rule=Host(`traefik.cloudlexi.com`)"
-      - "traefik.http.services.reverse-proxy-traefik.loadbalancer.server.port=8080"
 networks:
   traefik-net:
     external: false
