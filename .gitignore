@@ -5,3 +5,4 @@ log.txt
 *.bak
 **/node_modules
 br/tmp/*
+acme.json
