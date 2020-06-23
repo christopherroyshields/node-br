@@ -30,7 +30,7 @@ class Br extends BrProcess {
     }
 
     try {
-      await this.fn("ApplyLexi", `:${sourcePath}`, `:${outPath}`, addLineNumbers ? 0 : 1, `:${sourcePath}.sourcemap`)
+      await this.fn("ApplyLexi", `:${sourcePath}`, `:${outPath}`, addLineNumbers ? 0 : 1, `:${mapPath}`)
     } catch(err){
       throw new Error("Error applying Lexi\n" + err)
     }
@@ -53,10 +53,12 @@ class Br extends BrProcess {
       binPath: null
     }
 
+    var baseFilename = ""
+    var outPath = `${sourcePath}.out`
     if (applyLexi){
       try {
-        await this.applyLexi(sourcePath, `${sourcePath}.out`, `${sourcePath}.map`, addLineNumbers)
-        sourcePath = `${sourcePath}.out`
+        await this.applyLexi(sourcePath, `${outPath}`, `${sourcePath}.map`, addLineNumbers)
+        outPath = `${sourcePath}.out`
       } catch (err) {
         throw err
       }
@@ -69,10 +71,10 @@ class Br extends BrProcess {
 
     await this.queue.add(async ()=>{
       try {
-        await this.cmd(`load :${sourcePath},source`)
+        await this.cmd(`load :${outPath},source`)
         var res
         try {
-          bin = path.join(path.dirname(sourcePath), path.basename(sourcePath, path.extname(sourcePath)) + ".br")
+          bin = path.join(path.dirname(outPath), path.basename(outPath, path.extname(outPath)) + ".br")
           if (exists(bin)) {
             await this.cmd(`replace :${bin}`)
           } else {
@@ -84,7 +86,7 @@ class Br extends BrProcess {
       } catch(err) {
         e = err
         try {
-          part = path.join(path.dirname(sourcePath), path.basename(sourcePath, path.extname(sourcePath)) + ".part")
+          part = path.join(path.dirname(outPath), path.basename(outPath, path.extname(outPath)) + ".part")
           await this.cmd(`list >:${part}`)
         } catch(err) {
           part = ``
@@ -102,8 +104,24 @@ class Br extends BrProcess {
     if (e){
       result.err = e
       if (part){
-        let partData = await fs.readFile(`${part}`, 'ascii')
-        result.err.sourceLine = partData.split(os.EOL).length
+        let partialText = await fs.readFile(`${part}`, 'ascii')
+        let partialLines = partialText.split(os.EOL)
+        let lastPartialLine = partialLines[partialLines.length - 2]
+        let lastGoodLineNumber = parseInt(lastPartialLine.substring(0,5))
+
+        let sourceMapText = await fs.readFile(`${sourcePath}.map`, 'ascii')
+        let sourceMapLines = sourceMapText.split(os.EOL)
+
+        for (var s = 0; s < sourceMapLines.length; s++) {
+          let strMap = sourceMapLines[s].split(",")
+          if (parseInt(strMap[0])===lastGoodLineNumber){
+            let strMap = sourceMapLines[ s + 1 ].split(",")
+            result.err.sourceLine = strMap[1]
+            result.err.line = parseInt(strMap[0])
+            break
+          }
+        }
+        // sresult.err.sourceLine = partData.length
       } else {
         result.err.sourceLine = 1
       }
