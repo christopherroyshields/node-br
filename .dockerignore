@@ -13,3 +13,4 @@ npm-debug.log
 docker-stack.yml
 test.sh
 debug.sh
+acme.json
