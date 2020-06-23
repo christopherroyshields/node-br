@@ -41,7 +41,8 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
 
    READLINE: linput #InFile: String$ eof DONEREADING
 
-      do while (WrapPosition:=pos(String$,LineWrapCommand$))
+      ! Line Continuation
+      do while (WrapPosition:=fnPosNotInString(String$,LineWrapCommand$))
          linput #InFile: String2$ eof Ignore
          let Linecount+=Increment
          let RealCount+=1
@@ -69,6 +70,8 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
          let string$ = backstring$
       end if
 
+      ! Backtick String processing
+      !
       ! Check for a ` that is not inside "s .. so count from the beginning flagging if we're in "s
       !  if so, we're in special character processing mode. loop until the end of the string,
       !  which is a ` that is not immediately followed by another ` (we'll honor BR's normal stuff) ``
@@ -139,6 +142,8 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
             let CheckPosition=SpecialPosition
          end if
       loop
+
+      ! Multi Line Comments
       !
       ! While we're at it we should support multi-line comments using /* and */. Those will be easier.
       /*
@@ -147,26 +152,31 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
       At the position of the EndCommentMark Put all the stuff before it after it, and vice versa, and change it to a !
       */
       if MultilineComment then
-         if (SpecialPosition:=pos(String$,CommentEndCommand$)) then
+         if (SpecialPosition:=fnPosNotInString(String$,CommentEndCommand$)) then
             let MultilineComment=0
             let String$=String$(SpecialPosition+2:len(String$))&" ! "&String$(1:SpecialPosition-1)
          else
             let String$(1:0)=" ! "
          end if
       else
-         if (ReplacePosition:=pos(String$,CommentStartCommand$)) then
+         if (ReplacePosition:=fnPosNotInString(String$,CommentStartCommand$)) then
             let MultilineComment=1
             let String$(ReplacePosition:ReplacePosition+1)="!"
          end if
       end if
  !
+      ! Line Continuation
       if not SkipNextOne and (ltrm$(String$)(1:1)="!" and pos(String$,"!")>3) then let String$(1:4)=" ! ."&ltrm$(string$(1:4))
+
+      ! Define Substituions - Apply
       for Constindex=1 to Udim(Mat Const$)
          if (Constantposition:=Pos(Uprc$(String$),Uprc$(Constname$(Constindex)))) then
             let String$=String$(1:Constantposition-1) & Const$(Constindex) & String$(Constantposition+Len(Constname$(Constindex)):Len(String$))
          end if
       next Constindex
-      if (Constantposition:=Pos(Uprc$(String$),DefineCommand$)) then
+
+      ! Define Substitutions
+      if (Constantposition:=fnPosNotInString(String$,DefineCommand$,0,1)) then
          let Constantposition+=8
          if (Constnamestartpos:=Pos(String$,"[[",Constantposition)) then
             if (Constnameendpos:=Pos(String$,"]]",Constnamestartpos)) then
@@ -184,8 +194,10 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
             end if
          end if
       end if
-      if (Selectposition:=Pos(Uprc$(String$),SelectCommand$)) then
-         if (Caseposition:=Pos(Uprc$(String$),CaseCommand$,Selectposition)) then
+
+      ! Select Case
+      if (Selectposition:=fnPosNotInString(String$,SelectCommand$,0,1)) then
+         if (Caseposition:=fnPosNotInString(String$,CaseCommand$,Selectposition,1)) then
             let Currentselect$=String$(Selectposition+8:Caseposition-1)
             let Caseindex=0
             let Currentcasechunk=Caseposition+6
@@ -209,7 +221,7 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
             next Caseindex
             let String$ = String$ & Afterstring$
          end if
-      else if (Caseposition:=Pos(Uprc$(String$),CaseCommand$)) then
+      else if (Caseposition:=fnPosNotInString(String$,CaseCommand$,0,1)) then
          if Len(Trim$(Currentselect$)) then
             let Caseindex=0
             let Currentcasechunk=Caseposition+6
@@ -233,16 +245,19 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
             next Caseindex
             let String$ = String$ & Afterstring$
          end if
-      else if (Caseposition:=Pos(Uprc$(String$),CaseElseCommand$)) then
+      else if (Caseposition:=fnPosNotInString(String$,CaseElseCommand$,0,1)) then
          if Len(Trim$(Currentselect$)) then
             let String$ = String$(1:Caseposition-1) & "else " & String$(Caseposition+11:Len(String$)) & " ! " & String$(Caseposition:Len(String$))
          end if
-      else if (Endposition:=Pos(Uprc$(String$),EndSelectCommand$)) then
+      else if (Endposition:=fnPosNotInString(String$,EndSelectCommand$,0,1)) then
          let String$ = String$(1:EndPosition-1) & "end if" & String$(EndPosition+12:len(String$)) & "  ! " & String$(EndPosition:len(String$))
          let Currentselect$ = ""
       end if
+
       if DontAddLineNumbers then goto PrintLine ! Skip down to PrintLine
-      if (Newnumber:=Pos(Uprc$(String$),AutonumberCommand$)) then
+
+      ! Auto Number Code
+      if (Newnumber:=fnPosNotInString(String$,AutonumberCommand$,0,1)) then
          let Temp=0
          let Temp=Val(String$(Newnumber+12:Newincrement:=Pos(String$,",",Newnumber+12))) conv BADAUTONUMBER
          if Temp=0 then goto BADAUTONUMBER
@@ -252,6 +267,8 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
          let Increment=Val(String$(Newincrement+1:4000)) conv BADAUTONUMBER
          let Linecount-=Increment ! Decrement So Next Increment Is Correct
       end if
+
+      ! Handle L Labels Automatic Renumbering
       if (Ltrm$(Uprc$(String$))(1:1)="L") And (Newnumber:=Pos(Ltrm$(Uprc$(String$))(1:7),":")) then
          let Newlinecount=Val(Ltrm$(Uprc$(String$))(2:Newnumber-1)) conv BADAUTONUMBER
          if (Newlinecount>Linecount) then
@@ -262,10 +279,12 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
             let Increment=Max(Int(Increment/2),2) ! Cut Incr In Half To Catch Up
          end if
       end if
+
    BADAUTONUMBER: ! Ignore Line Number Information
       let X=0
       let X = Val(String$(1:5)) conv ADDLINENUMBER
       if X>0 then goto PRINTLINE
+
    ADDLINENUMBER: !
       if Not Skipnextone then
          if Trim$(String$)="" then
@@ -352,7 +371,6 @@ fnend
 
 def library fnUndoLexi(InFile$*255,OutFile$*255)
    let fnSetLexiConstants
-
    open #(InFile:=FngetfileNo): "name="&Infile$&", recl=800", display, input
    open #(OutFile:=fnGetFileNo): "name="&Outfile$&", recl=800, replace", display, output
 
@@ -362,7 +380,7 @@ READLINEUNDO: linput #InFile: String$ eof DONEREADINGUNDO
          let String$=String$(1:Constantposition-1) & Constname$(Constindex) & String$(Constantposition+Len(Const$(Constindex)):Len(String$))
       end if
    next Constindex
-   if (Constantposition:=Pos(Uprc$(String$),DefineCommand$)) then
+   if (Constantposition:=fnPosNotInString(String$,DefineCommand$,0,1)) then
       let Constantposition+=8
       if (Constnamestartpos:=Pos(String$,"[[",Constantposition)) then
          if (Constnameendpos:=Pos(String$,"]]",Constnamestartpos)) then
@@ -380,27 +398,28 @@ READLINEUNDO: linput #InFile: String$ eof DONEREADINGUNDO
          end if
       end if
    end if
-   if (Selectposition:=Pos(Uprc$(String$),SelectCommand$)) then
-      if (Caseposition:=Pos(Uprc$(String$),CaseCommand$,Selectposition)) then
+   if (Selectposition:=fnPosNotInString(String$,SelectCommand$,0,1)) then
+      if (Caseposition:=fnPosNotInString(String$,CaseCommand$,Selectposition,1)) then
          if (IfPosition:=Pos(Uprc$(String$),"IF ")) then
             let String$=String$(1:IfPosition-1) & String$(SelectPosition:len(String$))
             let CurrentlyInCaseStatement=1
          end if
       end if
-   else if (Caseposition:=Pos(Uprc$(String$),CaseCommand$)) then
+   else if (Caseposition:=fnPosNotInString(String$,CaseCommand$,0,1)) then
       if CurrentlyInCaseStatement then
          let String$ = String$(1:pos(uprc$(string$),"ELSE IF")-1) & String$(CasePosition:len(String$))
       end if
-   else if (Caseposition:=Pos(Uprc$(String$),CaseElseCommand$)) then
+   else if (Caseposition:=fnPosNotInString(String$,CaseElseCommand$,0,1)) then
       if CurrentlyInCaseStatement then
          let String$ = String$(1:pos(uprc$(string$),"ELSE ")-1) & String$(CasePosition:len(String$))
       end if
-   else if (Endposition:=Pos(Uprc$(String$),EndSelectCommand$)) then  !
+   else if (Endposition:=fnPosNotInString(String$,EndSelectCommand$,0,1)) then  !
       if CurrentlyInCaseStatement then
          let String$ = String$(1:pos(uprc$(String$),"END IF")-1) & String$(EndPosition:len(String$))
          let CurrentlyInCaseStatement=0
       end if
    end if
+
    if trim$(string$(1:5))="" then
       if string$(6:6)=" " then
          let String$=String$(7:4000)
@@ -417,6 +436,39 @@ NOLINENUMBER: ! A Line Has No Line Number At This Point
 DONEREADINGUNDO: !
    close #OutFile:
    close #InFile:
+fnend
+
+def fnPosNotInString(&String$,Thing$*32;StartPosition,CaseInsensitive,___,CheckDirection,InQuotesSingle,InQuotesDouble,InComment,CheckPosition,Found)
+
+   ! Before we do our detailed checking lets do a quick "POS"
+   !  This will save time then checking everything .. if its not in the string
+   !   at all then we don't have to worry about checking the string closely.
+   if (CaseInsensitive and pos(uprc$(String$),uprc$(Thing$))) or (~CaseInsensitive and pos(String$,Thing$)) then
+
+      let CheckDirection=1
+      if StartPosition>0 then
+         let CheckPosition=StartPosition-1
+      else if StartPosition<0 then
+         let CheckDirection=-1
+         let CheckPosition=len(String$)+(StartPosition)+1
+      end if
+
+      let CheckPosition=min(len(String$)+1,CheckPosition)
+      let CheckPosition=max(0,CheckPosition)
+
+      do while CheckPosition<=len(String$) and CheckPosition>=0
+         let CheckPosition+=CheckDirection
+         if pos("""",String$(CheckPosition:CheckPosition)) and ~InQuotesSingle then let InQuotesDouble=~InQuotesDouble
+         if pos("'",String$(CheckPosition:CheckPosition)) and ~InQuotesDouble then let InQuotesSingle=~InQuotesSingle
+         ! if pos("!",String$(CheckPosition:CheckPosition)) and ~InQuotesDouble and ~InQuotesSingle then let InComment=1
+         if ~InQuotesSingle and ~InQuotesDouble then
+            if (CaseInsensitive and uprc$(Thing$)=uprc$(String$(CheckPosition:CheckPosition+len(Thing$)-1))) or (~CaseInsensitive and Thing$=String$(CheckPosition:CheckPosition+len(Thing$)-1)) then
+               let Found=CheckPosition
+            end if
+         end if
+      loop until Found
+      let fnPosNotInString=Found
+   end if
 fnend
 
 Ignore: Continue
