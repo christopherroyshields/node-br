@@ -7,6 +7,7 @@ docker run -it ^
   -v "%cd%\app\run.js:/app/run.js" ^
   -v "%cd%\app\br.js:/app/br.js" ^
   -v "%cd%\br:/br" ^
+  -v "%CD%\brserial.dat:/br/brserial.dat" ^
   --name node-br ^
   --rm ^
  brulescorp/br:node-br npm run-script start-debug
