@@ -3,6 +3,7 @@ const app = express();
 const bodyParser = require('body-parser')
 const cluster = require('cluster');
 const fs = require('fs').promises;
+const { existsSync } = require('fs');
 const Br = require('./br.js')
 const os = require('os');
 const { tmpNameSync } = require('tmp-promise');
@@ -74,9 +75,11 @@ app.post('/compile', async (req, res) => {
     "bin": null
   }
 
+  let tmpFile;
+
   if (req.body.lines){
     try {
-      let tmpFile = await tmpNameSync()
+      tmpFile = await tmpNameSync()
       await fs.writeFile(tmpFile, req.body.lines.join(os.EOL), 'ascii')
 
       if (HAS_LINE_NUMBERS.test(req.body.lines[0])){
@@ -89,6 +92,7 @@ app.post('/compile', async (req, res) => {
         result.error = err.error
         result.line = err.line
         result.sourceLine = err.sourceLine
+        result.sourceLineEnd = err.sourceLineEnd
         result.message = err.toString()
       }
       if (bin){
@@ -110,7 +114,25 @@ app.post('/compile', async (req, res) => {
     })
   }
 
+  try {
+    if (existsSync(tmpFile)) {
+      await fs.unlink(tmpFile)
+    }
+    if (existsSync(`${tmpFile}.br`)) {
+      await fs.unlink(`${tmpFile}.br`)
+    }
+    if (existsSync(`${tmpFile}.map`)) {
+      await fs.unlink(`${tmpFile}.map`)
+    }
+    if (existsSync(`${tmpFile}.out`)) {
+      await fs.unlink(`${tmpFile}.out`)
+    }
+  } catch(e){
+    console.error("Error removing temp files." + e);
+  }
+
 })
+
 
 app.post('/decompile', async (req, res) => {
 
@@ -119,12 +141,16 @@ app.post('/decompile', async (req, res) => {
     bin = Buffer.from(req.body.bin,'base64'),
     lines = null,
     source = null,
-    e = null
+    e = null,
+    binPath = ``,
+    sourcePath = ``,
+    tmpName = ``
 
   try {
-    let tmpName = await tmpNameSync()
-    let binPath = `${tmpName}.br`
-    let sourcePath = `${tmpName}.brs`
+
+    tmpName = await tmpNameSync()
+    binPath = `${tmpName}.br`
+    sourcePath = `${tmpName}.brs`
 
     await fs.writeFile(`${binPath}`, bin, 'binary')
     await br.decompile(binPath, sourcePath)
@@ -139,10 +165,14 @@ app.post('/decompile', async (req, res) => {
   res.send(JSON.stringify({lines}))
 
   try {
-    fs.unlink(binPath)
-    fs.unlink(sourcePath)
-  } catch(err){
-    console.error("Error removing files after decompile.", err);
+    if (existsSync(binPath)) {
+      await fs.unlink(binPath)
+    }
+    if (existsSync(sourcePath)) {
+      await fs.unlink(sourcePath)
+    }
+  } catch(e){
+    console.error("Error removing temp files." + e);
   }
 
 })

@@ -5,6 +5,7 @@ const exists = require('fs').existsSync
 const os = require('os');
 const { tmpNameSync } = require('tmp-promise');
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
+const LAST_LINE_SEARCH = /[1-9]\d{0,3}\b(?!(.|\s)*\n\d{1,5})/
 
 class Br extends BrProcess {
 
@@ -53,14 +54,16 @@ class Br extends BrProcess {
       binPath: null
     }
 
-    var baseFilename = ""
     var outPath = `${sourcePath}.out`
+    var mapPath = `${sourcePath}.map`
+
     if (applyLexi){
       try {
-        await this.applyLexi(sourcePath, `${outPath}`, `${sourcePath}.map`, addLineNumbers)
-        outPath = `${sourcePath}.out`
+        await this.applyLexi(sourcePath, outPath, mapPath, addLineNumbers)
       } catch (err) {
-        throw err
+        console.log("Error applying Lexi.")
+        result.err = err
+        return result;
       }
     }
 
@@ -89,10 +92,14 @@ class Br extends BrProcess {
           part = path.join(path.dirname(outPath), path.basename(outPath, path.extname(outPath)) + ".part")
           await this.cmd(`list >:${part}`)
         } catch(err) {
-          part = ``
+          console.log("error listing partial")
         }
       } finally {
-        await this.cmd('clear')
+        try {
+          await this.cmd('clear')
+        } catch(err){
+          console.log("error clearing")
+        }
       }
     })
 
@@ -105,31 +112,25 @@ class Br extends BrProcess {
       result.err = e
       if (part){
         let partialText = await fs.readFile(`${part}`, 'ascii')
-        let partialLines = partialText.split(os.EOL)
-        let lastPartialLine = partialLines[partialLines.length - 2]
-        let lastGoodLineNumber = parseInt(lastPartialLine.substring(0,5))
+        let sourceMapText = await fs.readFile(mapPath, 'ascii')
+        let lastGoodLineNumber = (+LAST_LINE_SEARCH.exec(partialText)[0]).toString()
 
-        let sourceMapText = await fs.readFile(`${sourcePath}.map`, 'ascii')
-        let sourceMapLines = sourceMapText.split(os.EOL)
+        let rangeSearch = new RegExp(`(?<=\\n${lastGoodLineNumber},\\d+\\n)\\d+`)
+        let range = rangeSearch.exec(sourceMapText)[0]
 
-        for (var s = 0; s < sourceMapLines.length; s++) {
-          let strMap = sourceMapLines[s].split(",")
-          if (parseInt(strMap[0])===lastGoodLineNumber){
-            let strMap = sourceMapLines[ s + 1 ].split(",")
-            result.err.sourceLine = strMap[1]
-            result.err.line = parseInt(strMap[0])
-            break
-          }
-        }
-        // sresult.err.sourceLine = partData.length
+        let rangeStartSearch = new RegExp(`(?<=${range},)\\d+\\b`)
+        let rangeStart = rangeStartSearch.exec(sourceMapText)[0]
+
+        let rangeEndSearch = new RegExp(`(?<=${range},)\\d+\\b(?!\\n${range},)`)
+        let rangeEnd = rangeEndSearch.exec(sourceMapText)[0]
+
+        result.err.line = range
+        result.err.sourceLine = rangeStart
+        result.err.sourceLineEnd = rangeEnd
       } else {
         result.err.sourceLine = 1
       }
     }
-
-    // fs.unlink(`${sourcePath}.br`)
-    // fs.unlink(`${sourcePath}.part`)
-    // fs.unlink(`${sourcePath}`)
 
     return result
   }

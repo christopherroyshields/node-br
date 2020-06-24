@@ -292,13 +292,13 @@ def library fnApplyLexi(InFile$*255,OutFile$*255;DontAddLineNumbers,SourceMapFil
          else
             let String$=Cnvrt$("PIC(#####)",(Linecount:=Linecount+Increment)) & " " & String$
          end if
-         let RealCount+=1
-         if SourceMap then
-            print #SourceMapFile: str$(LineCount)&","&str$(RealCount)
-         end if
       else
          let String$="      "&String$
          let Skipnextone=0
+      end if
+      let RealCount+=1
+      if SourceMap then
+         print #SourceMapFile: str$(LineCount)&","&str$(RealCount)
       end if
    PRINTLINE: !
       if Trim$(String$)(Len(Trim$(String$))-1:Len(Trim$(String$))) = "!:" then let Skipnextone=1

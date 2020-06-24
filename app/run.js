@@ -156,6 +156,9 @@ class BrProcess extends EventEmitter {
     if (this.error){
       var err = this._handleError(cmd, output)
       await this._write("\n")
+      await this._write("\n")
+      await this._write("\n")
+      await this._write("\n")
       this.error = 0
       throw err
     } else {
