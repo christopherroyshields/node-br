@@ -1,7 +1,7 @@
 #!/bin/sh
-docker run -it \
-  --init \
+docker run --init \
+  -p 3000:3000 \
   -v "$PWD/brserial.dat:/br/brserial.dat" \
   --name node-br \
   --rm \
-  brulescorp/br:node-br npm test
+  brulescorp/br:node-br node cluster.js

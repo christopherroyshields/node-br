@@ -1,219 +1,200 @@
 const express = require('express')
-const fileUpload = require('express-fileupload')
 const app = express();
-const fs = require('fs');
-const path = require('path');
-const { finished } = require('stream');
+const bodyParser = require('body-parser')
+const cluster = require('cluster');
+const fs = require('fs').promises;
+const { existsSync } = require('fs');
 const Br = require('./br.js')
+const os = require('os');
+const { tmpNameSync } = require('tmp-promise');
+
+const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
 const PORT = 3000
+const IP = '0.0.0.0'
 
-app.use(fileUpload({
-    useTempFiles : true,
-    tempFileDir : '../br/tmp/'
-}));
+app.use(bodyParser.json({
+  type: 'application/json',
+  limit: '5mb'
+}))
 
-br = new Br({
-  log: false,
-  libs: {
-    "lexi":["fnApplyLexi"]
-  }
+app.use((req, res, next) => {
+  // set some custom br realted header at beginning of request
+  res.set({
+    'x-br-wsid': app.locals.br.wsid
+  })
+
+  next()
 })
 
-app.get('/api/v1/decompile', function(req,res) {
-  var form = `
-    <html>
+// return silly favicon cause errors are annoying.
+const favicon = new Buffer.from('AAABAAEAEBAQAAAAAAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAgAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAA/4QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEREQAAAAAAEAAAEAAAAAEAAAABAAAAEAAAAAAQAAAQAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAEAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAA//8AAP//AAD8HwAA++8AAPf3AADv+wAA7/sAAP//AAD//wAA+98AAP//AAD//wAA//8AAP//AAD//wAA', 'base64');
+app.get("/favicon.ico", function(req, res) {
+  res.statusCode = 200;
+  res.setHeader('Content-Length', favicon.length);
+  res.setHeader('Content-Type', 'image/x-icon');
+  res.setHeader("Cache-Control", "public, max-age=2592000");                // expiers after a month
+  res.setHeader("Expires", new Date(Date.now() + 2592000000).toUTCString());
+  res.end(favicon);
+});
+
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
       <head>
-        <title>Decompile</title>
+        <title>Lexi API</title>
       </head>
       <body>
-        <form method="post">
-          <label for="object">Object:</label>
-          <input type="file"
-            id="object" name="object" />
-          <button type="submit">Submit</button>
-        </form>
+        <h1>Welcome to the Lexi API!</h1>
+        <p>
+          Lexi is a Lexical Preprocessor for the Business Rules language. It enables the BR Programmer <br>
+          to use Modern Editors, and many modern program statements that aren't supported in BR directly. <br>
+          Lexi makes line numbers optional, and adds Select Case, and Multiline Strings and Multiline Comments <br>
+          and much much more, to Business Rules. <br>
+        </p>
+        <p>
+          Web API by Christopher Shields
+        </p>
+        <em>Copyright Notices</em>
+        <ul>
+          <li>Copyright 2003 Gabriel Bakker</li>
+          <li>Copyright 2007 Sage AX, LLC and Gabriel Bakker</li>
+          <li>Copyright 2020 Christopher Shields</li>
+        </ul>
       </body>
     </html>
-  `
-  res.status(200).send(form)
+    `)
 })
 
-app.post('/api/v1/decompile', function(req, res) {
-  req.files.object.mv(`${req.files.object.tempFilePath}.br`, function(err) {
-    br.sendCmd(`list <:${req.files.object.tempFilePath}.br >:${req.files.object.tempFilePath}.brs\r`)
-      .then(()=>{
-        // outputFile = `${req.files.object.tempFilePath}.brs`
-        outputFile = `${req.files.object.tempFilePath}.brs`
-        console.log(outputFile);
+app.post('/compile', async (req, res) => {
 
-        var stat = fs.statSync(outputFile);
+  const br = app.locals.br
+  const result = {
+    "error": 0,
+    "line": 0,
+    "message": "",
+    "bin": null
+  }
 
-        res.writeHead(200, {
-            'Content-Type': 'text/br',
-            'Content-Length': stat.size
-        });
+  let tmpFile;
 
-        var readStream = fs.createReadStream(outputFile);
-        // We replaced all the event handlers with a simple call to readStream.pipe()
-        readStream.pipe(res);
+  if (req.body.lines){
+    try {
+      tmpFile = await tmpNameSync()
+      await fs.writeFile(tmpFile, req.body.lines.join(os.EOL), 'ascii')
 
-        fs.unlink(`${req.files.object.tempFilePath}.br`, (err) => {
-          if (err) throw err;
-          console.log(`${req.files.object.tempFilePath} was deleted`);
-        });
-
-        fs.unlink(outputFile, (err) => {
-          if (err) throw err;
-          console.log(`${outputFile} was deleted`);
-        });
-
-      })
-      .catch((err)=>{
-        console.log("load failed");
-        res.status(400).send(err)
-      })
-    })
-})
-
-app.put('/api/v1/compile', (req, res) => {
-  debugger
-})
-
-app.post('/api/v1/compile', (req, res) => {
-  var sourceFile = req.files.source.tempFilePath
-  var outputFile = `${sourceFile}.out.brs`
-  var objectFile = `${sourceFile}.br`
-  console.log("Lexifying...");
-  br.fn("ApplyLexi",":"+sourceFile,":"+outputFile)
-    .then(()=>{
-      console.log("Loading...");
-      return br.sendCmd([
-        `LOAD :${outputFile},SOURCE`
-      ])
-    })
-    .then(()=>{
-      console.log("Saving to '.br'...");
-      return br.sendCmd([
-        `SAVE :${objectFile}`,
-        `CLEAR ALL`
-      ])
-    })
-    .then(()=>{
-      fs.unlink(outputFile, (err) => {
-        if (err) {
-          console.log(`${outputFile} was NOT deleted`);
-        } else {
-          console.log(`${outputFile} was deleted`);
-        }
-      });
-      console.log("Sending back");
-      var stat = fs.statSync(objectFile);
-      res.writeHead(200, {
-          'Content-Type': 'application/octet-stream',
-          'Content-Length': stat.size
-      });
-
-      var readStream = fs.createReadStream(objectFile);
-      // We replaced all the event handlers with a simple call to readStream.pipe()
-      readStream.pipe(res);
-
-      res.on('finish', ()=>{
-        console.log("finished sending")
-        fs.unlink(objectFile, (err) => {
-          if (err) {
-            console.log(`${objectFile} was NOT deleted`);
-          } else {
-            console.log(`${objectFile} was deleted`);
-          }
-        });
-      })
-    })
-    .catch((err)=>{
-      var {message,line,clause,output,error,command}=err
-      if (command===`LOAD :${outputFile},SOURCE`){
-        // console.log(`TEST:LIST >:./tmp/${path.basename(sourceFile)}.prt.brs`);
-        br.sendCmd([
-          `LIST >:./tmp/${path.basename(sourceFile)}.part.brs`
-        ]).then(()=>{
-          let
-            i,
-            count = 0
-
-          this.getCount = function(partial){
-            return new Promise((resolve)=>{
-              fs.createReadStream(partial)
-                .on('data', function(chunk) {
-                  for (i=0; i < chunk.length; ++i)
-                    if (chunk[i] == 10) count++;
-                })
-                .on('end', function() {
-                  br.sendCmd([
-                    `CLEAR ALL`
-                  ]).then(()=>{
-                    resolve(count)
-                  })
-                })
-                .on('error', (err)=>{
-                  setTimeout(()=>{
-                    this.getCount(partial)
-                      .then((count)=>{
-                        br.sendCmd([
-                          `CLEAR ALL`
-                        ]).then(()=>{
-                          resolve(count)
-                        })
-                      })
-                  },500)
-                })
-            })
-          }
-
-          return this.getCount(`${sourceFile}.part.brs`)
-            .then((count)=>{
-              var lastLine = count
-              // console.log(count);
-              res.status(400).send({message,line,clause,output,error,lastLine})
-            })
-
-
-        }).catch((err)=>{
-          var {message,line,clause,output,error,command}=err
-          // console.log("Error evaluating load error\n:" + err);
-          var lastLine=0
-          res.status(400).send({message,line,clause,output,error,lastLine})
-        }).finally(()=>{
-          fs.unlink(`${sourceFile}.part.brs`, (err) => {
-            if (err) {
-              console.log(`${sourceFile}.part.brs was NOT deleted`);
-            } else {
-              console.log(`${sourceFile}.part.brs was deleted`);
-            }
-          });
-          fs.unlink(`${sourceFile}`, (err) => {
-            if (err) {
-              console.log(`${sourceFile} was NOT deleted`);
-            } else {
-              console.log(`${sourceFile} was deleted`);
-            }
-          });
-          fs.unlink(`${sourceFile}.out.brs`, (err) => {
-            if (err) {
-              console.log(`${sourceFile}.out.brs was NOT deleted`);
-            } else {
-              console.log(`${sourceFile}.out.brs was deleted`);
-            }
-          });
-        })
+      if (HAS_LINE_NUMBERS.test(req.body.lines[0])){
+        var {err, bin} = await br.compile(tmpFile, false, false)
+      } else {
+        var {err, bin} = await br.compile(tmpFile, true, true)
       }
+
+      if (err){
+        result.error = err.error
+        result.line = err.line
+        result.sourceLine = err.sourceLine
+        result.sourceLineEnd = err.sourceLineEnd
+        result.message = err.toString()
+      }
+      if (bin){
+        result.bin = bin.toString('base64')
+      }
+
+    } catch(err){
+      result.message = err.toString()
+    }
+  }
+
+  res.setHeader('Content-Type', 'text/json');
+  res.send(JSON.stringify(result))
+
+  if (cluster.isWorker){
+    process.send({
+      cmd: 'request',
+      wsid: br.wsid
     })
+  }
+
+  try {
+    if (existsSync(tmpFile)) {
+      await fs.unlink(tmpFile)
+    }
+    if (existsSync(`${tmpFile}.br`)) {
+      await fs.unlink(`${tmpFile}.br`)
+    }
+    if (existsSync(`${tmpFile}.map`)) {
+      await fs.unlink(`${tmpFile}.map`)
+    }
+    if (existsSync(`${tmpFile}.out`)) {
+      await fs.unlink(`${tmpFile}.out`)
+    }
+  } catch(e){
+    console.error("Error removing temp files." + e);
+  }
+
 })
 
-br.on("load_error", (errors)=>{
-  throw new Error("Error loading BR.\n" + errors.join("\n"))
+
+app.post('/decompile', async (req, res) => {
+
+  const br = app.locals.br
+  let
+    bin = Buffer.from(req.body.bin,'base64'),
+    lines = null,
+    source = null,
+    e = null,
+    binPath = ``,
+    sourcePath = ``,
+    tmpName = ``
+
+  try {
+
+    tmpName = await tmpNameSync()
+    binPath = `${tmpName}.br`
+    sourcePath = `${tmpName}.brs`
+
+    await fs.writeFile(`${binPath}`, bin, 'binary')
+    await br.decompile(binPath, sourcePath)
+
+    source = await fs.readFile(sourcePath, 'ascii')
+    lines = source.split('\r\n')
+  } catch(err){
+    e = err
+  }
+
+  res.setHeader('Content-Type', 'text/json');
+  res.send(JSON.stringify({lines}))
+
+  try {
+    if (existsSync(binPath)) {
+      await fs.unlink(binPath)
+    }
+    if (existsSync(sourcePath)) {
+      await fs.unlink(sourcePath)
+    }
+  } catch(e){
+    console.error("Error removing temp files." + e);
+  }
+
 })
 
-br.on("ready", ()=>{
-  app.listen(PORT,()=>{
-    console.log(`Server listening on port ${PORT}`);
+async function start(port, ip){
+  app.locals.br = await Br.spawn()
+  await new Promise((resolve)=>{
+    app.listen(port, ip, ()=>{
+      resolve()
+    })
   })
+  return app.locals.br
+}
+
+start(PORT, IP).then((br)=>{
+  if (cluster.isWorker){
+    process.send({
+      cmd: `started`,
+      wsid: br.wsid,
+      concurrency: br.concurrency
+    })
+  } else {
+    console.log(`Api started on port ${PORT} bound to IP ${IP} with WSID ${br.wsid}`)
+  }
 })

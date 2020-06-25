@@ -1,0 +1,47 @@
+version: "3.7"
+services:
+  traefik:
+    image: traefik:v2.2.1
+    restart: always
+    networks:
+      - 'traefik-net'
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.toml:/traefik.toml
+      - type: bind
+        source: ./acme.json
+        target: /acme.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.rule=Host(`traefik.cybertron.cloud`)"
+      - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.routers.api.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=admin:fakepass"
+    environment:
+      - LINODE_TOKEN=faketoken
+  node-br:
+    image: "brulescorp/br:node-br"
+    restart: always
+    command: ["node", "cluster.js"]
+    depends_on:
+      - traefik
+    networks:
+      - traefik-net
+    volumes:
+      - type: bind
+        source: ./brserial.dat
+        target: /br/brserial.dat
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.node-br.rule=Host(`cloudlexi.com`)"
+      - "traefik.http.routers.node-br.entrypoints=websecure"
+      - "traefik.http.routers.node-br.tls=true"
+      - "traefik.http.routers.node-br.tls.certresolver=myresolver"
+      - "traefik.http.services.node-br-node-br.loadbalancer.server.port=3000"
+networks:
+  traefik-net:
+    external: false

@@ -5,6 +5,8 @@ const fs = require('fs')
 const os = require('os')
 const AnsiParser = require('node-ansiparser');
 const chalk = require('chalk');
+const tmp = require('tmp-promise');
+const {default: PQueue} = require('p-queue');
 
 const PROMT_TO_END = /Press any key to exit./
 const PROMPT_FOR_KEYPRESS = /Press any key to continue ..../
@@ -47,12 +49,12 @@ const XTERM_DECSET = []
 XTERM_DECSET[25] = 'Show Cursor (DECTCEM)'
 
 class BrError extends Error {
-  constructor({error,line,clause,message,command,output},...args){
+  constructor({error,line,clause,message,command,output}){
 
     super(`BR Error ${error} occured
     on line ${line}, clause ${clause}
     with message '${message}'
-    executing command '${command}'`,...args)
+    executing command '${command}'`)
 
     this.error = error
     this.line = line
@@ -65,18 +67,8 @@ class BrError extends Error {
 }
 
 class BrProcess extends EventEmitter {
-  constructor({
-    log=false,
-    filename="log.txt",
-    // console=true,
-    bin="",
-    entrypoint='',
-    libs=[],
-    ...opt
-  },...args){
-
+  constructor(log=false) {
     super()
-
     this.prompted = false;
 
     this.brConfig = {
@@ -85,16 +77,17 @@ class BrProcess extends EventEmitter {
     }
 
     this.log = log
-    this.ready = false
+    this.started = false
     this.line = ""
     this.lines = []
-    this.license = ""
+    this.license = {
+      license_text: [],
+      licensee: "",
+      licensee_address: []
+    }
     this.config_messages = []
-    this.license_text = []
     this.copyright = []
     this.serial = ""
-    this.licensee = ""
-    this.licensee_address = []
     this.stations = null
     this.concurrency = null
     this.wsid = null
@@ -104,65 +97,181 @@ class BrProcess extends EventEmitter {
     this.load_errors = []
 
     this.shows = 0
-    // ansi keycode event handlers
-    this.spawnBr(...args)
-      .then(({ps, license})=>{
-        this.ps = ps
-        this.license = license
-        if (this.log) console.log("ready")
-        this.emit("ready",this.license)
-      })
-  }
 
-  _write(cmd, cb){
-    this.ps.write(cmd)
-    this.once("done",(...args)=>{
-      cb(...args)
+    this.queue = new PQueue({concurrency: 1});
+
+    this.parser = new AnsiParser({
+      inst_p: this._onPrint.bind(this),
+      inst_o: this._onOperatingSystemCommand.bind(this),
+      inst_x: this._onSingleCharacterExecute.bind(this),
+      inst_c: this._onCursorChange.bind(this),
+      inst_e: (collected, flag)=>{
+        if (this.log) console.log('esc', collected, flag)
+      },
+      inst_H: (collected, params, flag)=>{
+        if (this.log) console.log('dcs-Hook', collected, params, flag)
+      },
+      inst_P: (dcs)=>{
+        if (this.log) console.log('dcs-Put', dcs)
+      },
+      inst_U: ()=>{
+        if (this.log) console.log('dcs-Unhook')
+      }
     })
   }
 
-  async sendCmd(brCmd){
-    var cmdList = []
-    if (typeof brCmd === "object"){
-      cmdList = [...brCmd]
-    } else if (typeof brCmd === "string") {
-      if (brCmd.includes("\r")){
-        cmdList = brCmd.split("\r")
-      } else {
-        cmdList.push(brCmd)
-      }
+  async start(){
+    try {
+      await this._spawnBr()
+      this.started = true
+      if (this.log) console.log("started")
+      this.emit("ready")
+    } catch(err){
+      console.error(err);
     }
-    var results = []
-    for (var i = 0; i < cmdList.length; i++) {
-      cmdList[i].replace("\r","")
-      cmdList[i].replace("\n","")
-      if (cmdList[i].length){
-        try {
-          results[i] = await new Promise((resolve,reject)=>{
-            var cmd = cmdList[i]
-            if (this.log) console.log("job added:"+cmd)
-            this._write(cmdList[i]+"\r", (result)=>{
-              if (this.log) console.log("job finished:"+cmd)
-              if (this.state==="ERROR") {
-                this.state = ""
-                this._write("\n", (result)=>{
-                  this._write("\n", (result)=>{
-                    reject(this._handleError(cmd,result))
-                  })
-                })
-              } else {
-                resolve(result)
-              }
-            })
-          })
-        } catch(err){
-          throw err
-        }
-
-      }
-    }
-    return results
   }
+
+  async stop(){
+    try {
+      await this.proc([
+        'clear',
+        'system'
+      ])
+    } catch(err){
+      console.error(err);
+    }
+  }
+
+  // enter lines of code and run then return results
+  async proc(lines){
+    var output = []
+    for (var i = 0; i < lines.length; i++) {
+      output.push(await this.cmd(`${lines[i]}`))
+    }
+    return output
+  }
+
+  async cmd(cmd){
+    var output = await this._write(`${cmd}\r`)
+    if (this.error){
+      var err = this._handleError(cmd, output)
+      await this._write("\n")
+      await this._write("\n")
+      await this._write("\n")
+      await this._write("\n")
+      this.error = 0
+      throw err
+    } else {
+      return output
+    }
+  }
+
+  _write(cmd){
+    return new Promise((resolve, reject)=>{
+      this.ps.write(cmd)
+      this.once("done", (data)=>{
+        resolve(data)
+      })
+    })
+  }
+
+  async _spawnBr(){
+    await new Promise((resolve, reject)=>{
+      // create psuedoterminal
+      this.ps = pty.spawn("./brlinux", [], {
+        name: 'linux',
+        cols: this.brConfig.cols,
+        rows: this.brConfig.rows,
+        cwd: '../br',
+        env: {
+          TERM: "linux"
+        }
+      })
+
+      var license = ""
+
+      this.once("started", ()=>{
+        resolve()
+      })
+
+      this.ps.on('data',(data)=>{
+        this.parser.parse(data)
+      })
+
+      this.ps.on('close', (code, sig)=>{
+        this.emit('close')
+      })
+    })
+  }
+
+  _onPrint(text){
+
+    if (this.log) console.log('print', `*${text}*`)
+
+    if (this.row===this.brConfig.rows){
+      this._parseStatusLine(text)
+    } else {
+      if (!this.splashed){
+        if (PROMT_TO_END.test(text)){
+          this.ps.write("\n")
+          this.emit("load_error",this.load_errors)
+        } else if (PROMPT_FOR_KEYPRESS.test(text)){
+          // ps.removeListener('data',loadListen)
+          this.ps.write("\n")
+          this.splashed = true
+        } else {
+          this._parseLoadingText(text)
+        }
+      } else if (this.started) {
+        this._parseOutput(text)
+      }
+    }
+  }
+
+  _onCursorChange(collected, params, flag) {
+    var cursorChange = this._handleCSI(collected, params, flag)
+    // if (this.log) console.log(cursorChange)
+    if (cursorChange==="DECTCEM"){
+      if (!this.started && this.splashed){
+        if (this.log) console.log("STARTED")
+        this.started = true
+        this.emit("started")
+      }
+    }
+    // this.emit("cursor", collected, params, flag)
+    // if (this.log) console.log('csi', collected, params, flag)
+  }
+
+  _onOperatingSystemCommand(s) {
+    if (this.log) console.log('Operating System Command (osc)', s)
+  }
+
+  _onSingleCharacterExecute(flag) {
+    // Single character method
+    if (this.started){
+      switch (flag.charCodeAt(0)) {
+        case 10:
+          if (this.log) console.log("Line Feed")
+          this.lines.push(this.line)
+          this.line=""
+          break;
+        case 13:
+          if (this.log) console.log("Carriage Return")
+          // this.lines.push("\r")
+          break;
+        case 15:
+          if (this.log) console.log("Shift In.")
+          break
+        default:
+        if (this.log) console.log('unhadled single character execute', flag.charCodeAt(0))
+      }
+    }
+  }
+
+  _parseOutput(s){
+    this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
+  }
+
   _handleError(cmd, output){
     // converts BR error to Javascript Exception
     // May want to expand to have more br error info
@@ -178,6 +287,7 @@ class BrProcess extends EventEmitter {
 
     return err
   }
+
   _parseLoadingText(s) {
     switch (this.row) {
       case 4:
@@ -214,7 +324,7 @@ class BrProcess extends EventEmitter {
       case 9:
         switch (this.column) {
           case 26:
-            this.licensee = s
+            this.license.licensee = s
             break;
           default:
         }
@@ -222,7 +332,7 @@ class BrProcess extends EventEmitter {
       case 10:
         switch (this.column) {
           case 11:
-            this.licensee_address[0] = s
+            this.license.licensee_address[0] = s
             break;
           default:
         }
@@ -230,7 +340,7 @@ class BrProcess extends EventEmitter {
       case 11:
         switch (this.column) {
           case 11:
-            this.licensee_address[1] = s
+            this.license.licensee_address[1] = s
             break;
           default:
         }
@@ -238,7 +348,7 @@ class BrProcess extends EventEmitter {
       case 12:
         switch (this.column) {
           case 11:
-            this.licensee_address[2] = s
+            this.license.licensee_address[2] = s
             break;
           default:
         }
@@ -247,7 +357,7 @@ class BrProcess extends EventEmitter {
         switch (this.column) {
           case 7:
             if (this.shows===0){
-              this.license_text.push(s)
+              this.license.license_text.push(s)
             }
             break;
           default:
@@ -258,7 +368,7 @@ class BrProcess extends EventEmitter {
         switch (this.column) {
           case 7:
             if (this.shows===0){
-              this.license_text.push(s)
+              this.license.license_text.push(s)
             }
             break;
           default:
@@ -269,7 +379,7 @@ class BrProcess extends EventEmitter {
         switch (this.column) {
           case 7:
             if (this.shows===0){
-              this.license_text.push(s)
+              this.license.license_text.push(s)
             }
             break;
           default:
@@ -280,7 +390,7 @@ class BrProcess extends EventEmitter {
         switch (this.column) {
           case 7:
             if (this.shows===0){
-              this.license_text.push(s)
+              this.license.license_text.push(s)
             }
             break;
           default:
@@ -309,7 +419,7 @@ class BrProcess extends EventEmitter {
         switch (this.column) {
           case 1:
             if (this.shows===0){
-              if (this.license_text.length){
+              if (this.license.license_text.length){
                 // if loading and after license info
                 if (s.substring(0,15)==="Workstation ID:"){
                   this.wsid = parseInt(s.substring(16))
@@ -347,6 +457,7 @@ class BrProcess extends EventEmitter {
       default:
     }
   }
+
   _parseStatusLine(s) {
     // if last row
     switch (this.column) {
@@ -396,10 +507,6 @@ class BrProcess extends EventEmitter {
     }
   }
 
-  _parseOutput(s){
-    this.line = [this.line.padEnd(this.column).slice(0, this.column), s, this.line.slice(this.column + s.length)].join("")
-  }
-
   _handleCSI(collected, params, flag){
     if (this.log) console.log("Device Control String (DCS):")
     switch (collected) {
@@ -413,6 +520,7 @@ class BrProcess extends EventEmitter {
             switch (params[0]) {
               case 25:
                 if (this.log) console.log(`    Hide Cursor (DECTCEM)`)
+                this.last_command = this.line
                 return "DECTCEM"
                 break;
               default:
@@ -434,10 +542,10 @@ class BrProcess extends EventEmitter {
                 // if (this.state === "ERROR"){
                 //   debugger
                 // }
-                this.lines.shift()
+                // this.lines.shift()
 
                 // finish job
-                if (this.ready){
+                if (this.started){
                   this.lines.push(this.line.substring(1))
                   this.line = ""
                     // job.cb(this.lines)
@@ -522,123 +630,6 @@ class BrProcess extends EventEmitter {
       default:
         if (this.log) console.log(`unhandled collection: ${collected}`)
     }
-  }
-
-  getVal(variable,val){
-
-  }
-
-  setVal(variable,val){
-    this.sendCmd(`${variable}=${val}\r`)
-  }
-
-  callFn(func,...args){
-    for (var i = 0; i < args.length; i++) {
-      if (typeof args[i] === 'string'){
-        args[i] = `"${args[i]}"`
-      }
-    }
-    var call = `let ${func}(${args.toString()})`
-    this.sendCmd(call)
-  }
-
-  spawnBr(...args){
-    return new Promise((resolve,reject)=>{
-      // create psuedoterminal
-      var ps = pty.spawn("./brlinux", args, {
-        name: 'xterm',
-        cols: this.brConfig.cols,
-        rows: this.brConfig.rows,
-        cwd: '../br',
-        env: {
-          TERM: "xterm"
-        }
-      })
-
-      var license = ""
-
-      this.parser = new AnsiParser({
-        inst_p: (s)=>{
-          if (this.log) console.log('print', s)
-          if (this.row===this.brConfig.rows){
-            this._parseStatusLine(s)
-          } else {
-            if (!this.splashed){
-              if (PROMT_TO_END.test(s)){
-                ps.write("\n")
-                this.emit("load_error",this.load_errors)
-              } else if (PROMPT_FOR_KEYPRESS.test(s)){
-                // ps.removeListener('data',loadListen)
-                ps.write("\n")
-                this.splashed = true
-              } else {
-                this._parseLoadingText(s)
-              }
-            } else if (this.ready) {
-              this._parseOutput(s)
-            }
-          }
-        },
-        inst_o: (s)=>{
-          if (this.log) console.log('osc', s)
-        },
-        inst_x: (flag)=>{
-          // Single character method
-          if (this.ready){
-            switch (flag) {
-              case 10:
-                if (this.log) console.log("Line Feed")
-                this.lines.push("\n")
-                break;
-              case 13:
-                if (this.log) console.log("Carriage Return")
-                this.lines.push("\r")
-                break;
-              case 15:
-                if (this.log) console.log("Shift In.")
-                break
-              default:
-              if (this.log) console.log('unhadled single character execute', flag.charCodeAt(0))
-            }
-          }
-        },
-        inst_c: (collected, params, flag)=>{
-          var cursorChange = this._handleCSI(collected, params, flag)
-          // if (this.log) console.log(cursorChange)
-          if (cursorChange==="DECTCEM"){
-            if (!this.ready && this.splashed){
-              if (this.log) console.log("READY")
-              this.ready = true
-              // this.emit("ready")
-              resolve({ps, license})
-            }
-          }
-          // this.emit("cursor", collected, params, flag)
-          // if (this.log) console.log('csi', collected, params, flag)
-        },
-        inst_e: (collected, flag)=>{
-          // this.emit("escape", collected, flag)
-          if (this.log) console.log('esc', collected, flag)
-        },
-        inst_H: (collected, params, flag)=>{
-          // this.emit('dcs-Hook', collected, params, flag)
-          if (this.log) console.log('dcs-Hook', collected, params, flag)
-        },
-        inst_P: (dcs)=>{
-          // this.emit('dcs-Put', dcs)
-          if (this.log) console.log('dcs-Put', dcs)
-        },
-        inst_U: ()=>{
-          // this.emit('dcs-Unhook')
-          if (this.log) console.log('dcs-Unhook')
-        }
-      })
-
-      // check for initial load screen and simulate enter
-      ps.on('data',(data)=>{
-        this.parser.parse(data)
-      })
-    })
   }
 
 }
