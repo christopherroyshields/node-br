@@ -5,19 +5,22 @@ let a = 1
 let b = 2
 let a = 7 !:
 let b = 2 !:
+let c = 3
 let a = 8
+print !_
+  1, !_
+  2,
+  3
 let a = 1
 let a = 1
 let b = 2
 let a = 8
 let a = 8
 let b = 2
-let a = 7
-let c = ''
 let a = 8
 let a = 1
 let a = 1
-let c = ''
+let c = 3
 let b = 2
 let a = 7
 let a = 8
