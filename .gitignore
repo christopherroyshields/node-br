@@ -7,3 +7,4 @@ log.txt
 br/tmp/*
 acme.json
 tmp
+test/*.br

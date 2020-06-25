@@ -2,6 +2,7 @@ version: "3.7"
 services:
   traefik:
     image: traefik:v2.2.1
+    restart: always
     networks:
       - 'traefik-net'
     ports:
@@ -24,6 +25,7 @@ services:
       - LINODE_TOKEN=faketoken
   node-br:
     image: "brulescorp/br:node-br"
+    restart: always
     command: ["node", "cluster.js"]
     depends_on:
       - traefik
