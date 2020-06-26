@@ -1,0 +1,24 @@
+name: Build and Deploy to Linode
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: build
+        run: docker build . --file Dockerfile --tag brulescorp/node-br:github-latest
+
+      - name: Log into registry
+        run: echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u brulescorp --password-stdin
+
+      - name: push
+        run: docker push brulescorp/node-br:github-latest
