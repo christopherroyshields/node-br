@@ -11,17 +11,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # - name: checkout
-      #   uses: actions/checkout@v2
-      #
-      # - name: build
-      #   run: docker build . --file Dockerfile --tag brulescorp/node-br:github-latest
-      #
-      # - name: Log into registry
-      #   run: echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u brulescorp --password-stdin
-      #
-      # - name: push
-      #   run: docker push brulescorp/node-br:github-latest
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: build
+        run: docker build . --file Dockerfile --tag brulescorp/node-br:github-latest
+
+      - name: Log into registry
+        run: echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | docker login -u brulescorp --password-stdin
+
+      - name: push
+        run: docker push brulescorp/node-br:github-latest
 
       - name: executing remote ssh commands using password
         uses: appleboy/ssh-action@master
@@ -30,4 +30,4 @@ jobs:
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT }}
-          script: whoami
+          script: cd ~/node-br ; docker-compose pull node-br ; docker-compose up -d
