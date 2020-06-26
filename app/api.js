@@ -44,6 +44,7 @@ app.get('/', (req, res) => {
         <title>Lexi API</title>
       </head>
       <body>
+        <h1>Test Deploy!</h1>
         <h1>Welcome to the Lexi API!</h1>
         <p>
           Lexi is a Lexical Preprocessor for the Business Rules language. It enables the BR Programmer <br>
