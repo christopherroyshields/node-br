@@ -23,11 +23,24 @@ jobs:
       - name: push
         run: docker push brulescorp/node-br:github-latest
 
+      - name: copy file via ssh key
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          port: ${{ secrets.PORT }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          source: "docker-compose.yml"
+          target: "node-br"
+
       - name: executing remote ssh commands using password
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
+          port: ${{ secrets.PORT }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
-          port: ${{ secrets.PORT }}
-          script: cd ~/node-br ; docker-compose pull node-br ; docker-compose up -d
+          script: |
+            cd node-br
+            docker-compose pull node-br
+            docker-compose up -d
