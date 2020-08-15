@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-    name: build
     runs-on: ubuntu-latest
 
     steps:
@@ -24,9 +23,9 @@ jobs:
         run: docker push brulescorp/node-br:github-latest
 
   deploy:
-    name: deploy
+    needs: build
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: copy file via ssh key
         uses: appleboy/scp-action@master
