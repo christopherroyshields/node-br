@@ -22,11 +22,6 @@ jobs:
       - name: push
         run: docker push brulescorp/node-br:github-latest
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
       - name: copy file via ssh key
         uses: appleboy/scp-action@master
         with:
@@ -37,6 +32,11 @@ jobs:
           source: "docker-compose.yml"
           target: "node-br"
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
       - name: executing remote ssh commands using password
         uses: appleboy/ssh-action@master
         with:
