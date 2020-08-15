@@ -21,7 +21,7 @@ services:
       - "traefik.http.routers.api.rule=Host(`traefik.cybertron.cloud`)"
       - "traefik.http.routers.api.service=api@internal"
       - "traefik.http.routers.api.middlewares=auth"
-      - "traefik.http.middlewares.auth.basicauth.users=admin:${HTTP_AUTH_PASS}"
+      - "traefik.http.middlewares.auth.basicauth.users=${HTTP_AUTH}"
     environment:
       - LINODE_TOKEN=${LINODE_TOKEN}
   node-br:

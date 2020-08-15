@@ -43,4 +43,4 @@ jobs:
           script: |
             cd node-br
             docker-compose pull node-br
-            docker-compose up -d
+            docker-compose -e "${{ secrets.HTTP_AUTH }}" up -d
