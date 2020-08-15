@@ -42,5 +42,7 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           script: |
             cd node-br
+            echo "HTTP_AUTH=${{ secrets.HTTP_AUTH }}" >.env
+            echo "LINODE_TOKEN=${{ secrets.LINODE_TOKEN }}" >>.env
             docker-compose pull node-br
-            docker-compose -e "${{ secrets.HTTP_AUTH }}" up -d
+            docker-compose up -d
