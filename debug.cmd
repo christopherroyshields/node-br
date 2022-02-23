@@ -1,4 +1,3 @@
-#!/bin/sh
 docker run -it ^
   --init ^
   -p 9229:9229 ^
@@ -7,7 +6,7 @@ docker run -it ^
   -v "%cd%\app\api.js:/app/api.js" ^
   -v "%cd%\app\run.js:/app/run.js" ^
   -v "%cd%\app\br.js:/app/br.js" ^
-  -v "%cd%\br:/br" ^
+  -v "%CD%\brserial.dat:/br/brserial.dat" ^
   --name node-br ^
   --rm ^
- brulescorp/br:node-br npm run-script start-debug
+  brulescorp/br:node-br npm run-script debug

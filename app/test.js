@@ -66,7 +66,7 @@ describe("Br class for high level abstraction", function() {
       ]
 
       await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
-      var compileResult = await tmp.compile(tmpSource, false, false)
+      var compileResult = await tmp.compile(tmpSource, true, false)
 
       expect(compileResult.err.error).to.equal(1026)
       expect(compileResult.err.sourceLine).to.equal(2)
@@ -77,7 +77,7 @@ describe("Br class for high level abstraction", function() {
       ]
 
       await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
-      var compileResult = await tmp.compile(tmpSource, false, false)
+      var compileResult = await tmp.compile(tmpSource, true, false)
 
       expect(compileResult.err.error).to.equal(302)
       expect(compileResult.err.output[1]).to.equal(" FNTEST")
@@ -87,7 +87,7 @@ describe("Br class for high level abstraction", function() {
       ]
 
       await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
-      var compileResult = await tmp.compile(tmpSource, false, false)
+      var compileResult = await tmp.compile(tmpSource, true, false)
       var list = await tmp.cmd(`list <:${compileResult.binPath}`)
 
       expect(compileResult.err).to.equal(null)
@@ -122,7 +122,7 @@ describe("Br class for high level abstraction", function() {
       ]
 
       await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
-      var compileResult = await tmp.compile(tmpSource, false, false)
+      var compileResult = await tmp.compile(tmpSource, true, false)
       tmp.libs = [{
         path: `:${compileResult.binPath}`,
         fn: ["fntest"]
@@ -142,7 +142,7 @@ describe("Br class for high level abstraction", function() {
       ]
 
       await fs.writeFile(tmpSource, lines.join(os.EOL), 'ascii')
-      var compileResult = await tmp.compile(tmpSource, false, false)
+      var compileResult = await tmp.compile(tmpSource, true, false)
       tmp.libs = [{
         path: `:${compileResult.binPath}`,
         fn: ["fntest$"]

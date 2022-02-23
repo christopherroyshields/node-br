@@ -5,7 +5,7 @@ const exists = require('fs').existsSync
 const os = require('os');
 const { tmpNameSync } = require('tmp-promise');
 const HAS_LINE_NUMBERS = /^\s*\d{0,5}\s/
-const LAST_LINE_SEARCH = /[1-9]\d{0,3}\b(?!(.|\s)*\n\d{1,5})/
+const LAST_LINE_SEARCH = /\r?\n?\s*(\d+).*\r?\n?$/
 
 class Br extends BrProcess {
 
@@ -113,16 +113,15 @@ class Br extends BrProcess {
       if (part){
         let partialText = await fs.readFile(`${part}`, 'ascii')
         let sourceMapText = await fs.readFile(mapPath, 'ascii')
-        let lastGoodLineNumber = (+LAST_LINE_SEARCH.exec(partialText)[0]).toString()
+        let lastGoodLineNumber = (LAST_LINE_SEARCH.exec(partialText)[1]).toString()
 
-        let rangeSearch = new RegExp(`(?<=\\n${lastGoodLineNumber},\\d+\\n)\\d+`)
-        let range = rangeSearch.exec(sourceMapText)[0]
+        let rangeSearch = new RegExp(`\\n${lastGoodLineNumber},\\d+\\n(\\d+),(\\d+)`)
 
-        let rangeStartSearch = new RegExp(`(?<=${range},)\\d+\\b`)
-        let rangeStart = rangeStartSearch.exec(sourceMapText)[0]
+        let range = rangeSearch.exec(sourceMapText)[1]
+        let rangeStart = rangeSearch.exec(sourceMapText)[2]
 
-        let rangeEndSearch = new RegExp(`(?<=${range},)\\d+\\b(?!\\n${range},)`)
-        let rangeEnd = rangeEndSearch.exec(sourceMapText)[0]
+        let rangeEndSearch = new RegExp(`\\n${range},(\\d+)(\\r?\\n$|(?!\\r?\\n${range}))`)
+        let rangeEnd = rangeEndSearch.exec(sourceMapText)[1]
 
         result.err.line = range
         result.err.sourceLine = rangeStart

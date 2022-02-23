@@ -83,7 +83,7 @@ app.post('/compile', async (req, res) => {
       await fs.writeFile(tmpFile, req.body.lines.join(os.EOL), 'ascii')
 
       if (HAS_LINE_NUMBERS.test(req.body.lines[0])){
-        var {err, bin} = await br.compile(tmpFile, false, false)
+        var {err, bin} = await br.compile(tmpFile, true, false)
       } else {
         var {err, bin} = await br.compile(tmpFile, true, true)
       }
@@ -99,13 +99,16 @@ app.post('/compile', async (req, res) => {
         result.bin = bin.toString('base64')
       }
 
+      res.setHeader('Content-Type', 'text/json');
+      res.send(JSON.stringify(result))
+
     } catch(err){
-      result.message = err.toString()
+      res.status(500).send(JSON.stringify({
+        message: err.toString()
+      }))
     }
   }
 
-  res.setHeader('Content-Type', 'text/json');
-  res.send(JSON.stringify(result))
 
   if (cluster.isWorker){
     process.send({
