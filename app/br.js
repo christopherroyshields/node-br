@@ -112,20 +112,40 @@ class Br extends BrProcess {
       result.err = e
       if (part){
         let partialText = await fs.readFile(`${part}`, 'ascii')
-        let sourceMapText = await fs.readFile(mapPath, 'ascii')
         let lastGoodLineNumber = (LAST_LINE_SEARCH.exec(partialText)[1]).toString()
 
-        let rangeSearch = new RegExp(`\\n${lastGoodLineNumber},\\d+\\n(\\d+),(\\d+)`)
+        if (addLineNumbers){
+          let sourceMapText = await fs.readFile(mapPath, 'ascii')
 
-        let range = rangeSearch.exec(sourceMapText)[1]
-        let rangeStart = rangeSearch.exec(sourceMapText)[2]
+          let rangeSearch = new RegExp(`\\n${lastGoodLineNumber},\\d+\\n(\\d+),(\\d+)`)
 
-        let rangeEndSearch = new RegExp(`\\n${range},(\\d+)(\\r?\\n$|(?!\\r?\\n${range}))`)
-        let rangeEnd = rangeEndSearch.exec(sourceMapText)[1]
+          let range = rangeSearch.exec(sourceMapText)[1]
+          let rangeStart = rangeSearch.exec(sourceMapText)[2]
 
-        result.err.line = range
-        result.err.sourceLine = rangeStart
-        result.err.sourceLineEnd = rangeEnd
+          let rangeEndSearch = new RegExp(`\\n${range},(\\d+)(\\r?\\n$|(?!\\r?\\n${range}))`)
+          let rangeEnd = rangeEndSearch.exec(sourceMapText)[1]
+
+          result.err.line = range
+          result.err.sourceLine = rangeStart
+          result.err.sourceLineEnd = rangeEnd
+        } else {
+          result.err.line = lastGoodLineNumber
+
+          let sourceFileText = await fs.readFile(sourcePath, 'ascii')
+          let lastLineSearch = new RegExp(`(^|\\r?\\n)[\\t\\s]*${lastGoodLineNumber}`)
+          let lastLineMatch = sourceFileText.match(lastLineSearch)
+          let lastLineIndex = lastLineMatch.index + lastLineMatch[0].length
+
+          let nextLineMatch = sourceFileText.substring(lastLineIndex).match(/\r?\n[\t\s]*\d+/)
+          let nextLineIndex = nextLineMatch.index + nextLineMatch[0].length + lastLineIndex
+
+          result.err.sourceLine = sourceFileText.substring(0, nextLineIndex).split("\n").length
+
+          let endLineMatch = sourceFileText.substring(nextLineIndex).match(/(\r?\n[\t\s]*\d+|$)/)
+          let endLineIndex = endLineMatch.index + endLineMatch[0].length + nextLineIndex
+
+          result.err.sourceLineEnd = sourceFileText.substring(0, endLineIndex).split("\n").length - 1
+        }
       } else {
         result.err.sourceLine = 1
       }
