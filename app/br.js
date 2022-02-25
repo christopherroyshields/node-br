@@ -112,9 +112,11 @@ class Br extends BrProcess {
       result.err = e
       if (part){
         let partialText = await fs.readFile(`${part}`, 'ascii')
-        let lastGoodLineNumber = (LAST_LINE_SEARCH.exec(partialText)[1]).toString()
+        let lastGoodLineNumber = LAST_LINE_SEARCH.exec(partialText)[1].toString()
 
         if (addLineNumbers){
+          lastGoodLineNumber = parseInt(lastGoodLineNumber).toString()
+
           let sourceMapText = await fs.readFile(mapPath, 'ascii')
 
           let rangeSearch = new RegExp(`\\n${lastGoodLineNumber},\\d+\\n(\\d+),(\\d+)`)
@@ -132,7 +134,7 @@ class Br extends BrProcess {
           result.err.line = lastGoodLineNumber
 
           let sourceFileText = await fs.readFile(sourcePath, 'ascii')
-          let lastLineSearch = new RegExp(`(^|\\r?\\n)[\\t\\s]*${lastGoodLineNumber}`)
+          let lastLineSearch = new RegExp(`(^|\\r?\\n)[\\t\\s]*0*${lastGoodLineNumber}`)
           let lastLineMatch = sourceFileText.match(lastLineSearch)
           let lastLineIndex = lastLineMatch.index + lastLineMatch[0].length
 
