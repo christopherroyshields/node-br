@@ -110,7 +110,7 @@ class Br extends BrProcess {
 
     if (e){
       result.err = e
-      if (part){
+      if (exists(part)){
         let partialText = await fs.readFile(`${part}`, 'ascii')
         let lastGoodLineNumber = LAST_LINE_SEARCH.exec(partialText)[1].toString()
 
@@ -150,6 +150,7 @@ class Br extends BrProcess {
         }
       } else {
         result.err.sourceLine = 1
+        result.err.sourceLineEnd = 1
       }
     }
 
